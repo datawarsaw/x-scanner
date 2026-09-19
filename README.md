@@ -11,6 +11,17 @@ under the post, usually before you have scrolled to it. Most posts
 come back clean. The ones that don't get an orange flag. Scroll for a minute and the panel reads
 something like 80 posts, $0.0027.
 
+## What v0.5 adds
+
+- **Analysis presets.** Default (the original six questions), Signal, AI / Tech, and Article. Results are cached per
+  preset, so switching never reuses one preset's answers for another.
+- **Article analysis.** When a post links out, x-scanner offers an *Analyze article* action. Nothing is fetched or
+  billed until you click it, and the result is cached by canonical URL.
+- **Thread context.** On a post's own page, the Signal and AI / Tech presets can attach the quoted post, the direct
+  parent, or a couple of preceding posts, so a reply can be judged with what it answers.
+- **Session panel.** Click *session* in the HUD for posts analyzed, cache hits, cost, average latency, flagged counts,
+  useful vs noisy dimensions, and the top-scoring posts and articles. It costs no extra Jev calls.
+
 ## Install
 
 Chrome 120 or newer, or Firefox / Zen for a development build. Until a store listing is live, install from source; Node 22 or newer is needed to build.
@@ -79,6 +90,19 @@ levels you describe. `fact-dense`, the one positive label, uses these four:
 Thresholds, labels and direction are display policy. Change them and nothing is re-billed. Change a
 question's wording, its levels, or the model, and the result cache is dropped.
 
+## Presets
+
+| preset | what it judges | context on a post page |
+| --- | --- | --- |
+| Default | the six dimensions above; user editable | quoted post only |
+| Signal | density, actionability, originality, evidence, promo, bait | quoted post + direct parent |
+| AI / Tech | technical depth, benchmark support, novelty, speculation, implementation use, hype | quoted post + a couple of preceding posts |
+| Article | density, evidence, sourcing, originality, depth, promo, speculation, action | used for linked pages |
+
+The three non-Default presets are read-only in v0.5; their thresholds are first-pass defaults for this release
+rather than values calibrated against a labelled set. The Default preset keeps v0.1's questions and thresholds
+exactly, so an upgraded install behaves the same as before until you switch.
+
 ## Cost and speed
 
 Measured on 2026-09-18 with `jev-1.13.0` over the 18 sample posts in `test/fixture/samples.json`.
@@ -97,6 +121,9 @@ Measured on 2026-09-18 with `jev-1.13.0` over the 18 sample posts in `test/fixtu
 - **Enabled**: master switch.
 - **Scope**: everywhere on X (default), or the home timeline only.
 - **Only when logged in as**: a handle, for people who switch accounts and want it on one.
+**Analysis preset** and **thread context**: which typed questions run, and how much of a thread is attached.
+**Articles**: whether the *Analyze article* action appears, the character cap sent to Jev, the article cache size,
+  and a one-time **Grant article access** control.
 - **Dimensions**: add, remove, disable, rename, switch between Noul and Score, edit the question, levels
   and criteria, set the threshold, whether the flag fires above or below it, and the flag color.
 - **Advanced**: model (pinned to `jev-1.13.0` so thresholds keep their meaning), price, base URL,
@@ -122,12 +149,19 @@ CJK is handled but not equally well. The post text goes in as written, in whatev
 - Results are cached by post id in extension storage. Scrolling back, reloading, or returning the next
   day re-bills nothing.
 - Promoted posts and posts with no text are never sent.
+- Article text is fetched only when you press *Analyze article*, is reduced to the readable body, capped at the
+  configured character limit, and cached under its canonical URL.
 
 ```
 src/
   background.ts         service worker: holds the key, calls Jev, keeps lifetime totals
   shared/
     questions.ts        the six default dimensions, request builder, cache hash
+    presets.ts          Default, Signal, AI / Tech and Article analysis profiles
+    article.ts          readable-text extraction from fetched HTML
+    links.ts            outbound article candidate detection and deduping
+    context.ts          bounded thread context and the versioned analysis payload
+    score.ts            deterministic 0..1 signal score, used only for session ranking
     jev.ts              HTTP client with backoff, cost math
     settings.ts         schema, defaults, normalization
   content/
@@ -136,13 +170,15 @@ src/
     extract.ts          id, text, quote, reply and promoted detection
     queue.ts            concurrency-capped FIFO with cancel
     cache.ts, store.ts  LRU and its persistence
+    article-store.ts    article LRU, keyed by canonical URL
     labels.ts           threshold policy
-    render.ts           the chip and the detail card
+    render.ts           the chip, the detail card and the article card
+    session-panel.ts    the local session summary
     hud.ts, stats.ts    the corner panel and its counters
   options/              settings page
 test/
   unit/                 node:test over the pure modules and DOM extraction (jsdom)
-  fixture/              a timeline that mimics X's markup and recycles nodes
+  fixture/              a timeline that mimics X's markup and recycles nodes, plus v0.5 pages
   e2e/                  Playwright: real extension, fake Jev, scrolls the fixture
 scripts/calibrate.ts    runs the defaults against the samples on the real API
 ```
@@ -176,6 +212,9 @@ set `CHROME_PATH`). Branded Google Chrome no longer accepts `--load-extension`.
 
 - Jev reads literally. A post written to argue for its own classification can move an answer, which is
   why thresholds default high.
+- Article extraction is a small readable-text pass, not a reader-mode engine. Pages that render entirely in client-side JavaScript, or that hide the body behind a paywall or a consent wall, yield little or no text, and the card says so rather than sending page chrome.
+- Thread context is read from the DOM of the page you are on, and only on a post's own URL. A home-timeline neighbour is never treated as a parent.
+- Session ranking uses a fixed weighted sum over each preset's typed answers. It is a local sort key, not a judgement about the post's value.
 - Works on x.com as of September 2026. The selectors live in `src/content/selectors.ts`; if X changes
   its markup, that is the file to fix. The automated tests run against the fixture, not live X.
 - Promoted posts are recognized by the "Ad" label in a handful of UI languages. Add yours to

@@ -12,6 +12,7 @@ const source = {
   manifest_version: 3,
   permissions: ["storage"],
   host_permissions: ["https://api.typesafe.ai/*"],
+  optional_host_permissions: ["https://*/*", "http://*/*"],
   background: { service_worker: "background.js" },
   content_scripts: [
     {
@@ -63,3 +64,12 @@ test("e2e Chromium manifest adds the fixture origin without changing the worker"
   assert.ok(m.host_permissions.includes("http://127.0.0.1/*"));
 });
 
+test("article hosts stay optional in both targets", () => {
+  for (const target of ["chromium", "firefox"] as const) {
+    const m = manifestForTarget(source, { target, e2e: false });
+    assert.deepEqual(m.optional_host_permissions, ["https://*/*", "http://*/*"]);
+    assert.equal(m.host_permissions.includes("*://*/*"), false);
+    assert.equal(m.host_permissions.includes("<all_urls>"), false);
+    assert.deepEqual(m.host_permissions, ["https://api.typesafe.ai/*"]);
+  }
+});

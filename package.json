@@ -1,6 +1,6 @@
 {
   "name": "x-scanner",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Chrome extension that labels every post you scroll past on X using TypeSafe's Jev, with a live cost counter in the corner.",
   "type": "module",
@@ -12,7 +12,7 @@
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/unit/*.test.ts\"",
-    "test:e2e": "node build.mjs --e2e && node --test \"test/e2e/*.test.ts\"",
+    "test:e2e": "node build.mjs --e2e && node --test --test-concurrency=1 \"test/e2e/*.test.ts\"",
     "validate:artifacts": "node scripts/validate-artifacts.mjs",
     "calibrate": "node scripts/calibrate.ts",
     "package": "npm run package:chromium",

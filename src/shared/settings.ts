@@ -5,7 +5,8 @@ import { DEFAULT_BASE_URL, DEFAULT_MODEL, DEFAULT_PRICE_PER_MTOK } from "./jev.t
 export const SETTINGS_KEY = "settings";
 export const STATS_KEY = "stats";
 /** v1: dwell 200 ms. v2: dwell 0, 800 px look-ahead. v3: scope all of X. v4: about_jev. v5: jevpilled, flag colors. */
-export const SETTINGS_VERSION = 5;
+/** v6: presets, article analysis, thread context, session fields. */
+export const SETTINGS_VERSION = 6;
 
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
@@ -20,6 +21,11 @@ export const DEFAULT_SETTINGS: Settings = {
   concurrency: 6,
   cacheMax: 5000,
   dimensions: DEFAULT_DIMENSIONS,
+  selectedPreset: "default",
+  articleAnalysisEnabled: true,
+  threadContextMode: "quoted",
+  maxArticleChars: 8000,
+  articleCacheMax: 200,
   version: SETTINGS_VERSION,
 };
 
@@ -53,6 +59,11 @@ export function normalizeSettings(raw: unknown): Settings {
     concurrency: clamp(Number(r.concurrency), 1, 32, DEFAULT_SETTINGS.concurrency),
     cacheMax: clamp(Number(r.cacheMax), 100, 100000, DEFAULT_SETTINGS.cacheMax),
     dimensions: dims,
+    selectedPreset: r.selectedPreset === "signal" || r.selectedPreset === "ai_tech" || r.selectedPreset === "article" ? r.selectedPreset : "default",
+    articleAnalysisEnabled: typeof r.articleAnalysisEnabled === "boolean" ? r.articleAnalysisEnabled : true,
+    threadContextMode: r.threadContextMode === "off" || r.threadContextMode === "parent" || r.threadContextMode === "thread" ? r.threadContextMode : "quoted",
+    maxArticleChars: clamp(Number(r.maxArticleChars), 1000, 40000, DEFAULT_SETTINGS.maxArticleChars),
+    articleCacheMax: clamp(Number(r.articleCacheMax), 20, 2000, DEFAULT_SETTINGS.articleCacheMax),
     version: SETTINGS_VERSION,
   };
 }

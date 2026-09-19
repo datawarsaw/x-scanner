@@ -41,6 +41,11 @@ function assertShared(manifest, dir) {
   }
   const hosts = manifest.host_permissions ?? [];
   if (!hosts.includes("https://api.typesafe.ai/*")) fail(`${dir}: missing TypeSafe host permission`);
+  if (hosts.includes("<all_urls>") || hosts.some((h) => h === "*://*/*")) {
+    fail(`${dir}: article hosts must stay optional, not required`);
+  }
+  const optional = manifest.optional_host_permissions ?? [];
+  if (!optional.includes("https://*/*")) fail(`${dir}: missing optional article host permission`);
   if (!(manifest.permissions ?? []).includes("storage")) fail(`${dir}: missing storage permission`);
   if (manifest.content_scripts?.[0]?.js?.[0] !== "content.js") fail(`${dir}: content script is not content.js`);
 }
@@ -82,4 +87,3 @@ assertShared(firefox, firefoxDir);
 assertChromium(chromium, chromiumDir);
 assertFirefox(firefox, firefoxDir);
 console.log("artifacts ok");
-

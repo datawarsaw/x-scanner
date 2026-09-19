@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "x-scanner",
-  "version": "0.1.0",
-  "description": "Labels every post you scroll past on X with typed Jev judgments, with a live cost counter. Bring your own TypeSafe key.",
+  "version": "0.5.0",
+  "description": "Labels posts you scroll past on X with typed Jev judgments, analyzes linked articles on request, and shows what the session cost. Bring your own TypeSafe key.",
   "homepage_url": "https://github.com/oso95/x-scanner",
   "permissions": ["storage"],
   "host_permissions": ["https://api.typesafe.ai/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {

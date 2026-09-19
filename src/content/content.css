@@ -194,3 +194,87 @@
 .xs-hud.xs-collapsed .xs-hud-title {
   margin-bottom: 0;
 }
+
+/* Article action row and compact article result. */
+.xs-article-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 4px;
+}
+.xs-article-btn {
+  font: 400 12px/18px TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: rgb(29, 155, 240);
+  background: transparent;
+  border: 1px solid rgba(29, 155, 240, 0.5);
+  border-radius: 12px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+.xs-article-btn:hover {
+  background: rgba(29, 155, 240, 0.1);
+}
+.xs-article-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 6px;
+  padding: 4px 11px;
+  border-radius: 14px;
+  border: 1px solid rgba(29, 155, 240, 0.45);
+  background: rgba(29, 155, 240, 0.08);
+  color: rgb(113, 118, 123);
+  font: 400 13px/20px TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.xs-article-k {
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: rgb(29, 155, 240);
+}
+
+/* Session summary panel, opened from the HUD. */
+.xs-session {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  max-width: 260px;
+}
+.xs-session-h {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+.xs-session-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 10px;
+  margin-bottom: 5px;
+}
+.xs-session-grid b {
+  font-variant-numeric: tabular-nums;
+}
+.xs-session-grid span {
+  opacity: 0.55;
+  margin-left: 5px;
+}
+.xs-session-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.xs-session-row > span:first-child {
+  opacity: 0.55;
+  flex: none;
+}
+.xs-session-row > span:last-child {
+  text-align: right;
+  word-break: break-word;
+}
+.xs-session-note {
+  margin-top: 5px;
+  font-size: 10px;
+  opacity: 0.4;
+}

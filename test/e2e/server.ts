@@ -7,9 +7,12 @@ import path from "node:path";
 export interface SeenRequest {
   text: string;
   quoted_text?: string;
+  parent_text?: string;
   is_reply: boolean;
   questionIds: string[];
   model: string;
+  kind?: string;
+  domain?: string;
 }
 
 export function fakeAnswers(state: { text: string; quoted_text?: string }, questionIds: string[]) {
@@ -57,9 +60,22 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
       }
       let body = "";
       for await (const chunk of req) body += chunk;
-      const parsed = JSON.parse(body) as { model: string; state: { text: string; quoted_text?: string; is_reply: boolean }; questions: Record<string, unknown> };
+      const parsed = JSON.parse(body) as {
+        model: string;
+        state: { text: string; quoted_text?: string; parent_text?: string; is_reply: boolean; kind?: string; domain?: string };
+        questions: Record<string, unknown>;
+      };
       const ids = Object.keys(parsed.questions);
-      requests.push({ text: parsed.state.text, quoted_text: parsed.state.quoted_text, is_reply: parsed.state.is_reply, questionIds: ids, model: parsed.model });
+      requests.push({
+        text: parsed.state.text,
+        quoted_text: parsed.state.quoted_text,
+        parent_text: parsed.state.parent_text,
+        is_reply: parsed.state.is_reply,
+        questionIds: ids,
+        model: parsed.model,
+        kind: parsed.state.kind,
+        domain: parsed.state.domain,
+      });
       const input_tokens = tokensFor(parsed.state);
       totalTokens += input_tokens;
       await new Promise((r) => setTimeout(r, 60 + Math.random() * 60));
@@ -72,7 +88,9 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
       res.end(JSON.stringify(requests));
       return;
     }
-    const file = (req.url ?? "/").split("?")[0]!.replace(/^\//, "") || "timeline.html";
+    const pathname = (req.url ?? "/").split("?")[0]!;
+    // A status permalink URL renders the thread fixture, so DOM thread-context extraction can be tested.
+    const file = /^\/status\/\d+$/.test(pathname) ? "thread.html" : pathname.replace(/^\//, "") || "timeline.html";
     try {
       const data = await readFile(path.join(fixtureDir, file));
       const type = file.endsWith(".json") ? "application/json" : "text/html; charset=utf-8";

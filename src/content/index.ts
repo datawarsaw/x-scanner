@@ -1,15 +1,22 @@
 // Content script entry. Wires the watcher, scheduler, cache, HUD and renderer together.
 import type { AnalysisResult, AnalyzeReply, Settings, TweetState } from "../shared/types.ts";
-import { loadSettings, onSettingsChange } from "../shared/settings.ts";
+import { loadSettings, onSettingsChange, saveSettings } from "../shared/settings.ts";
 import { buildQuestions, questionsHash } from "../shared/questions.ts";
-import { extractTweet, loggedInHandle, tweetId } from "./extract.ts";
+import { extractTweet, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
 import { TweetWatcher } from "./observe.ts";
 import { Scheduler } from "./queue.ts";
 import { ResultStore } from "./store.ts";
 import { SessionStats } from "./stats.ts";
 import { Hud } from "./hud.ts";
-import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot } from "./render.ts";
+import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot, ensureArticleAction, fillArticleResult } from "./render.ts";
 import { verdicts } from "./labels.ts";
+import { ArticleStore } from "./article-store.ts";
+import { renderSessionPanel } from "./session-panel.ts";
+import { activeDimensions, contextModeFor, PRESET_BY_ID } from "../shared/presets.ts";
+import { buildJevState, contextHash, postCacheKey } from "../shared/context.ts";
+import { extractReadable } from "../shared/article.ts";
+import { isHighSignal, signalScore } from "../shared/score.ts";
+import type { FetchArticleReply } from "../shared/types.ts";
 
 const SETTINGS_LINK = `<a class="xs-link">settings</a>`;
 
@@ -18,6 +25,7 @@ class App {
   private watcher: TweetWatcher | null = null;
   private scheduler: Scheduler;
   private store: ResultStore;
+  private articles: ArticleStore;
   private stats = new SessionStats();
   private slots = new Map<string, HTMLElement>();
   private routeTimer: number | null = null;
@@ -29,10 +37,15 @@ class App {
 
   constructor(settings: Settings) {
     this.settings = settings;
-    this.qhash = questionsHash(settings.dimensions, settings.model);
+    this.qhash = questionsHash(activeDimensions(settings), settings.model);
     this.scheduler = new Scheduler(settings.concurrency);
     this.store = new ResultStore(this.qhash, settings.cacheMax);
-    this.hud = new Hud(() => openOptions());
+    this.articles = new ArticleStore(questionsHash(PRESET_BY_ID.article.dimensions, settings.model), settings.articleCacheMax);
+    this.hud = new Hud(
+      () => openOptions(),
+      () => this.toggleSession(),
+    );
+    this.hud.setPreset(PRESET_BY_ID[settings.selectedPreset]?.label ?? "Default");
     this.hud.root.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).classList.contains("xs-link")) openOptions();
     });
@@ -50,6 +63,7 @@ class App {
       return;
     }
     await this.store.load();
+    await this.articles.load();
     this.scheduler.onChange(() => this.stats.setQueue(this.scheduler.pending, this.scheduler.inflight));
     this.tickTimer = window.setInterval(() => this.stats.tick(), 500);
     this.routeTimer = window.setInterval(() => this.evaluateRoute(), 500);
@@ -63,6 +77,7 @@ class App {
     this.watcher?.stop();
     this.scheduler.clear();
     this.hud.destroy();
+    document.querySelector(".xs-session")?.remove();
   }
 
   /** X is a single page app: the path and the account can change without a reload. */
@@ -108,7 +123,8 @@ class App {
     const slot = ensureSlot(article, id);
     if (!id) return;
     this.slots.set(id, slot);
-    const cached = this.store.get(id);
+    this.attachArticles(article);
+    const cached = this.store.get(this.cacheKey(article, id));
     if (cached) {
       this.render(slot, cached);
       this.stats.recordCacheHit();
@@ -128,7 +144,9 @@ class App {
       markSlot(slot, "skipped", "no text to analyze");
       return;
     }
-    const cached = this.store.get(t.id);
+    this.attachArticles(article);
+    const key = this.cacheKey(article, t.id);
+    const cached = this.store.get(key);
     if (cached) {
       if (slot.dataset.state !== "done") {
         this.render(slot, cached);
@@ -150,9 +168,14 @@ class App {
   private async analyze(id: string, state: TweetState): Promise<void> {
     const slot = this.slots.get(id);
     if (slot) markSlot(slot, "inflight");
+    const article = slot?.closest("article") as HTMLElement | null;
+    const extra = article ? extractThreadContext(article) : {};
+    const payload = buildJevState(state, extra, contextModeFor(this.settings));
+    const ctx = contextHash(payload);
+    const key = postCacheKey(id, ctx);
     let reply: AnalyzeReply | undefined;
     try {
-      reply = (await chrome.runtime.sendMessage({ type: "analyze", state })) as AnalyzeReply;
+      reply = (await chrome.runtime.sendMessage({ type: "analyze", state: payload })) as AnalyzeReply;
     } catch (e) {
       const msg = String((e as Error)?.message ?? e);
       reply = { ok: false, error: /context invalidated/i.test(msg) ? "extension reloaded, refresh the page" : msg };
@@ -165,6 +188,9 @@ class App {
       if (reply?.status === 401) this.fatal(`Jev rejected the API key · ${SETTINGS_LINK}`);
       return;
     }
+    const dims = activeDimensions(this.settings);
+    const vs = verdicts(dims, reply.answers);
+    const score = signalScore(this.settings.selectedPreset, dims, reply.answers);
     const result: AnalysisResult = {
       tweetId: id,
       model: reply.model,
@@ -175,15 +201,121 @@ class App {
       latencyMs: reply.latencyMs,
       at: Date.now(),
       questionsHash: this.qhash,
+      kind: "post",
+      contextHash: ctx || undefined,
+      signalScore: score,
     };
-    this.store.set(id, result);
-    this.stats.recordResult(result, Object.keys(reply.answers).length);
+    this.store.set(key, result);
+    this.stats.recordAnalysis({
+      costUsd: result.costUsd,
+      inputTokens: result.inputTokens,
+      latencyMs: result.latencyMs,
+      judgments: Object.keys(reply.answers).length,
+      flagged: vs.some((v) => v.show),
+      hits: vs.filter((v) => v.show).map((v) => v.id),
+      score,
+      id,
+      kind: "post",
+    });
     const s = this.slots.get(id);
     if (s && s.isConnected && s.dataset.tweetId === id) this.render(s, result);
   }
 
   private render(slot: HTMLElement, r: AnalysisResult): void {
-    fillSlot(slot, verdicts(this.settings.dimensions, r.answers), r);
+    fillSlot(slot, verdicts(activeDimensions(this.settings), r.answers), r);
+  }
+
+  private cacheKey(article: HTMLElement, id: string): string {
+    const t = extractTweet(article);
+    if (!t) return id;
+    const payload = buildJevState(t.state, extractThreadContext(article), contextModeFor(this.settings));
+    return postCacheKey(id, contextHash(payload));
+  }
+
+  private attachArticles(article: HTMLElement): void {
+    if (!this.settings.articleAnalysisEnabled) return;
+    const urls = articleHrefs(article, location.href);
+    ensureArticleAction(article, urls, (url) => void this.analyzeArticle(article, url));
+  }
+
+  private async analyzeArticle(article: HTMLElement, url: string): Promise<void> {
+    const cached = this.articles.get(url);
+    if (cached) {
+      this.showArticle(article, cached);
+      this.stats.recordArticleCacheHit();
+      return;
+    }
+    fillArticleResult(article, "fetching…");
+    const fetched = (await chrome.runtime.sendMessage({ type: "fetchArticle", url })) as FetchArticleReply;
+    if (!fetched?.ok) {
+      fillArticleResult(article, fetched?.needsGrant ? "article access needed · grant it in settings" : (fetched?.error ?? "fetch failed"));
+      return;
+    }
+    const extracted = extractReadable(fetched.html, fetched.finalUrl, this.settings.maxArticleChars);
+    if (!extracted.text) {
+      fillArticleResult(article, "no readable text");
+      return;
+    }
+    const reply = (await chrome.runtime.sendMessage({
+      type: "analyzeArticle",
+      article: { kind: "article", title: extracted.title, url: extracted.url, domain: extracted.domain, text: extracted.text, truncated: extracted.truncated },
+    })) as AnalyzeReply;
+    if (!reply?.ok) {
+      fillArticleResult(article, reply?.error ?? "analysis failed");
+      return;
+    }
+    const dims = PRESET_BY_ID.article.dimensions;
+    const vs = verdicts(dims, reply.answers);
+    const score = signalScore("article", dims, reply.answers);
+    const result: AnalysisResult = {
+      tweetId: extracted.url,
+      model: reply.model,
+      answers: reply.answers,
+      inputTokens: reply.usage.input_tokens,
+      outputTokens: reply.usage.output_tokens,
+      costUsd: reply.costUsd,
+      latencyMs: reply.latencyMs,
+      at: Date.now(),
+      questionsHash: questionsHash(dims, this.settings.model),
+      kind: "article",
+      url: extracted.url,
+      title: extracted.title,
+      truncated: extracted.truncated,
+      signalScore: score,
+    };
+    this.articles.set(extracted.url, result);
+    if (extracted.url !== url) this.articles.set(url, result);
+    this.stats.recordAnalysis({
+      costUsd: result.costUsd,
+      inputTokens: result.inputTokens,
+      latencyMs: result.latencyMs,
+      judgments: Object.keys(reply.answers).length,
+      flagged: vs.some((v) => v.show),
+      hits: vs.filter((v) => v.show).map((v) => v.id),
+      score,
+      id: extracted.url,
+      kind: "article",
+      title: extracted.title,
+    });
+    this.showArticle(article, result);
+  }
+
+  private showArticle(article: HTMLElement, r: AnalysisResult): void {
+    const vs = verdicts(PRESET_BY_ID.article.dimensions, r.answers);
+    const hits = vs.filter((v) => v.show).map((v) => v.label);
+    const head = hits.length ? hits.slice(0, 3).join(" · ") : "clean";
+    const trunc = r.truncated ? " · truncated" : "";
+    fillArticleResult(article, `${head} · ${r.inputTokens} tok · $${r.costUsd.toFixed(6)}${trunc}`, r.title);
+  }
+
+  private toggleSession(): void {
+    const existing = document.querySelector(".xs-session");
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    const panel = renderSessionPanel(this.stats.snapshot(), PRESET_BY_ID[this.settings.selectedPreset]?.label ?? "Default");
+    this.hud.root.appendChild(panel);
   }
 
   private fatal(html: string): void {

@@ -65,12 +65,52 @@
       </section>
 
       <section>
+        <h2>Analysis preset</h2>
+        <p class="muted">
+          A preset is a named set of typed questions. Results are cached per preset, so switching never reuses one
+          preset's answers for another. Default is the original six dimensions and stays user editable below.
+        </p>
+        <div class="row">
+          <label>Preset <select id="preset"></select></label>
+          <label
+            >Thread context
+            <select id="threadContextMode">
+              <option value="quoted">Quoted post only (v0.1 default)</option>
+              <option value="parent">Quoted post + direct parent</option>
+              <option value="thread">Quoted post + a few preceding posts</option>
+              <option value="off">Current post only</option>
+            </select>
+          </label>
+        </div>
+        <p id="presetNote" class="muted"></p>
+      </section>
+
+      <section>
+        <h2>Articles</h2>
+        <p class="muted">
+          When a post links out, x-scanner offers an <em>Analyze article</em> action. Nothing is fetched or billed
+          until you click it. Article access is a separate, optional permission you grant here.
+        </p>
+        <label class="check"><input id="articleAnalysisEnabled" type="checkbox" /> Offer article analysis on linked posts</label>
+        <div class="row">
+          <label>Maximum article characters sent <input id="maxArticleChars" type="number" min="1000" max="40000" step="500" /></label>
+          <label>Cached articles <input id="articleCacheMax" type="number" min="20" max="2000" step="10" /></label>
+        </div>
+        <div class="actions">
+          <button id="grantArticle" type="button">Grant article access</button>
+          <button id="revokeArticle" type="button" class="ghost">Revoke</button>
+          <span id="articleAccessOut" class="muted"></span>
+        </div>
+      </section>
+
+      <section>
         <h2>Dimensions</h2>
         <p class="muted">
           Each dimension is one typed question. All of them ride in the same request. A flag shows only when the answer
           crosses its threshold. Thresholds, labels, direction and color are display policy and never re-bill a post.
           Editing a question or the model does.
         </p>
+        <p id="dimNote" class="muted"></p>
         <div id="dimList"></div>
         <div class="actions">
           <button id="addDim" type="button">Add dimension</button>
@@ -84,6 +124,7 @@
         <div class="actions">
           <button id="resetStats" type="button" class="ghost">Reset counters</button>
           <button id="clearCache" type="button" class="ghost">Clear result cache</button>
+          <button id="clearArticleCache" type="button" class="ghost">Clear article cache</button>
         </div>
       </section>
 

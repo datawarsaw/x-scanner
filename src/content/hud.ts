@@ -9,10 +9,13 @@ export class Hud {
   private msg: HTMLElement;
   private v: Record<string, HTMLElement> = {};
 
-  constructor(onOpenSettings: () => void) {
+  constructor(
+    onOpenSettings: () => void,
+    private onOpenSession: () => void = () => {},
+  ) {
     this.root = el("div", "xs-hud");
     const title = el("div", "xs-hud-title");
-    title.innerHTML = `<span>x-scanner</span><span class="xs-hud-tog" aria-label="collapse">–</span>`;
+    title.innerHTML = `<span>x-scanner <em class="xs-hud-preset"></em></span><span class="xs-hud-tog" aria-label="collapse">–</span>`;
     title.addEventListener("click", () => this.toggle());
     this.root.appendChild(title);
 
@@ -46,6 +49,14 @@ export class Hud {
       onOpenSettings();
     });
     this.body.appendChild(gear);
+    const sess = el("a", "xs-hud-gear");
+    sess.textContent = "session";
+    sess.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.onOpenSession();
+    });
+    this.body.appendChild(sess);
     this.root.appendChild(this.body);
 
     let collapsed = false;
@@ -86,6 +97,11 @@ export class Hud {
     if (s.errors) bits.push(`errors ${s.errors}`);
     this.v.foot!.textContent = bits.join(" · ");
     this.v.foot!.title = s.lastError ?? "";
+  }
+
+  setPreset(label: string): void {
+    const em = this.root.querySelector(".xs-hud-preset");
+    if (em) em.textContent = label ? `· ${label}` : "";
   }
 
   private toggle(): void {

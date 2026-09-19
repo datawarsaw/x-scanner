@@ -1,5 +1,7 @@
 import type { TweetState } from "../shared/types.ts";
 import { PROMOTED_LABELS, REPLYING_TO, SEL } from "./selectors.ts";
+import { uniqueArticleUrls } from "../shared/links.ts";
+import type { ExtractedContext } from "../shared/context.ts";
 
 export interface ExtractedTweet {
   id: string;
@@ -91,4 +93,37 @@ export function loggedInHandle(doc: Document = document): string | null {
   const a = doc.querySelector<HTMLAnchorElement>(SEL.profileLink);
   const m = /^\/([A-Za-z0-9_]{1,15})\/?$/.exec(a?.getAttribute("href") ?? "");
   return m?.[1] ?? null;
+}
+
+/** Outbound article hrefs from the main post, skipping quoted-post links. */
+export function articleHrefs(article: Element, base?: string): string[] {
+  const hrefs: string[] = [];
+  for (const a of Array.from(article.querySelectorAll<HTMLAnchorElement>("a[href]"))) {
+    if (insideQuote(a, article)) continue;
+    const href = a.getAttribute("href");
+    if (href) hrefs.push(href);
+  }
+  return uniqueArticleUrls(hrefs, base);
+}
+
+/**
+ * Parent/thread text from nearby articles. Only used on /status/ pages so a home-timeline
+ * neighbor is not treated as a parent.
+ */
+export function extractThreadContext(article: Element, doc: Document = document): ExtractedContext {
+  const path = doc.defaultView?.location.pathname ?? "";
+  if (!/\/status\/\d+/.test(path)) return {};
+  const articles = Array.from(doc.querySelectorAll(SEL.article)).filter((a) => a === article || !article.contains(a));
+  const idx = articles.indexOf(article as HTMLElement);
+  if (idx <= 0) return {};
+  const parent = extractTweet(articles[idx - 1]!);
+  const extra: ExtractedContext = {};
+  if (parent?.state.text) extra.parent_text = parent.state.text;
+  const thread: string[] = [];
+  for (let i = Math.max(0, idx - 3); i < idx - 1; i++) {
+    const t = extractTweet(articles[i]!);
+    if (t?.state.text) thread.push(t.state.text);
+  }
+  if (thread.length) extra.thread = thread;
+  return extra;
 }

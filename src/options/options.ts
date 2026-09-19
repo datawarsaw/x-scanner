@@ -3,6 +3,7 @@ import type { AnalyzeReply, Dimension, Settings } from "../shared/types.ts";
 import { loadSettings, loadStats, normalizeSettings, saveSettings, STATS_KEY } from "../shared/settings.ts";
 import { DEFAULT_DIMENSIONS, validateDimension } from "../shared/questions.ts";
 import { answerValue } from "../content/labels.ts";
+import { PRESETS, PRESET_BY_ID } from "../shared/presets.ts";
 
 const $ = <T extends HTMLElement>(sel: string, root: ParentNode = document): T => {
   const el = root.querySelector<T>(sel);
@@ -25,7 +26,48 @@ function fillForm(s: Settings): void {
   $<HTMLInputElement>("#enabled").checked = s.enabled;
   $<HTMLSelectElement>("#scope").value = s.scope;
   $<HTMLInputElement>("#accountHandle").value = s.accountHandle;
+  $<HTMLSelectElement>("#preset").value = s.selectedPreset;
+  $<HTMLSelectElement>("#threadContextMode").value = s.threadContextMode;
+  $<HTMLInputElement>("#articleAnalysisEnabled").checked = s.articleAnalysisEnabled;
+  $<HTMLInputElement>("#maxArticleChars").value = String(s.maxArticleChars);
+  $<HTMLInputElement>("#articleCacheMax").value = String(s.articleCacheMax);
   renderDims(s.dimensions);
+  renderPreset();
+  void renderArticleAccess();
+}
+
+function renderPresetOptions(): void {
+  const sel = $<HTMLSelectElement>("#preset");
+  sel.textContent = "";
+  for (const p of PRESETS) {
+    const o = document.createElement("option");
+    o.value = p.id;
+    o.textContent = p.label;
+    sel.appendChild(o);
+  }
+}
+
+/** Keeps the preset description and the dimension-count note in sync with the selector. */
+function renderPreset(): void {
+  const id = $<HTMLSelectElement>("#preset").value as keyof typeof PRESET_BY_ID;
+  const p = PRESET_BY_ID[id];
+  $("#presetNote").textContent = p ? `${p.description} (${p.dimensions.length} dimensions)` : "";
+  const note = $("#dimNote");
+  if (id === "default") {
+    note.textContent = "These are the dimensions currently in use.";
+  } else {
+    note.textContent = `The ${p?.label ?? id} preset is in use. These dimensions are kept for the Default preset and are used again when you switch back.`;
+  }
+}
+
+async function renderArticleAccess(): Promise<void> {
+  const out = $("#articleAccessOut");
+  try {
+    const granted = await chrome.permissions.contains({ origins: ["https://*/*", "http://*/*"] });
+    out.textContent = granted ? "article access granted" : "not granted";
+  } catch {
+    out.textContent = "unavailable";
+  }
 }
 
 function renderDims(dims: Dimension[]): void {
@@ -132,6 +174,11 @@ function readForm(): { settings: Settings; problems: number } {
     enabled: $<HTMLInputElement>("#enabled").checked,
     scope: $<HTMLSelectElement>("#scope").value,
     accountHandle: $<HTMLInputElement>("#accountHandle").value,
+    selectedPreset: $<HTMLSelectElement>("#preset").value as Settings["selectedPreset"],
+    threadContextMode: $<HTMLSelectElement>("#threadContextMode").value as Settings["threadContextMode"],
+    articleAnalysisEnabled: $<HTMLInputElement>("#articleAnalysisEnabled").checked,
+    maxArticleChars: Number($<HTMLInputElement>("#maxArticleChars").value),
+    articleCacheMax: Number($<HTMLInputElement>("#articleCacheMax").value),
     dimensions: dims,
   });
   return { settings, problems };
@@ -141,11 +188,14 @@ async function renderStats(): Promise<void> {
   const s = await loadStats();
   const got = (await chrome.storage.local.get("cache")) as { cache?: { entries?: unknown[] } };
   const cached = got.cache?.entries?.length ?? 0;
+  const gotArticles = (await chrome.storage.local.get("articleCache")) as { articleCache?: { entries?: unknown[] } };
+  const cachedArticles = gotArticles.articleCache?.entries?.length ?? 0;
   $("#statsOut").innerHTML = [
     ["posts analyzed", s.analyzed.toLocaleString()],
     ["spent", `$${s.costUsd.toFixed(4)}`],
     ["input tokens", s.inputTokens.toLocaleString()],
     ["cached results", cached.toLocaleString()],
+    ["cached articles", cachedArticles.toLocaleString()],
   ]
     .map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`)
     .join("");
@@ -157,8 +207,36 @@ function flash(el: HTMLElement, text: string, cls: "ok" | "err" | "muted"): void
 }
 
 async function main(): Promise<void> {
+  renderPresetOptions();
   fillForm(await loadSettings());
   await renderStats();
+
+  $("#preset").addEventListener("change", () => renderPreset());
+
+  $("#grantArticle").addEventListener("click", async () => {
+    const out = $("#articleAccessOut");
+    try {
+      const ok = await chrome.permissions.request({ origins: ["https://*/*", "http://*/*"] });
+      flash(out, ok ? "article access granted" : "not granted", ok ? "ok" : "err");
+    } catch (e) {
+      flash(out, `failed: ${(e as Error).message}`, "err");
+    }
+  });
+
+  $("#revokeArticle").addEventListener("click", async () => {
+    const out = $("#articleAccessOut");
+    try {
+      await chrome.permissions.remove({ origins: ["https://*/*", "http://*/*"] });
+      flash(out, "article access revoked", "muted");
+    } catch {
+      flash(out, "not granted", "muted");
+    }
+  });
+
+  $("#clearArticleCache").addEventListener("click", async () => {
+    await chrome.storage.local.remove("articleCache");
+    await renderStats();
+  });
 
   $("#toggleKey").addEventListener("click", () => {
     const k = $<HTMLInputElement>("#apiKey");

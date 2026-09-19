@@ -11,8 +11,55 @@ test("fills defaults for a missing or partial object", () => {
   assert.equal(s.concurrency, 32);
   assert.equal(s.dwellMs, 0);
   assert.equal(s.lookaheadPx, 800);
-  assert.equal(s.version, 5);
+  assert.equal(s.version, 6);
   assert.equal(s.dimensions.length, 6);
+});
+
+test("v0.5 fields default to Default preset, articles on, quoted-only context", () => {
+  const s = normalizeSettings(undefined);
+  assert.equal(s.selectedPreset, "default");
+  assert.equal(s.articleAnalysisEnabled, true);
+  assert.equal(s.threadContextMode, "quoted");
+  assert.equal(s.maxArticleChars, 8000);
+  assert.equal(s.articleCacheMax, 200);
+});
+
+test("an existing v5 install keeps its settings and gains Default preset", () => {
+  const s = normalizeSettings({
+    version: 5,
+    apiKey: "keep-me",
+    model: "jev-1.13.0",
+    dimensions: [{ id: "mine", label: "mine", type: "noul", instructions: "?", threshold: 0.5 }],
+  });
+  assert.equal(s.apiKey, "keep-me");
+  assert.equal(s.selectedPreset, "default");
+  assert.deepEqual(
+    s.dimensions.map((d) => d.id),
+    ["mine"],
+  );
+});
+
+test("unknown preset, context and out-of-range numbers fall back safely", () => {
+  const s = normalizeSettings({
+    selectedPreset: "made_up",
+    threadContextMode: "everything",
+    maxArticleChars: 999999,
+    articleCacheMax: -5,
+    articleAnalysisEnabled: "yes",
+  });
+  assert.equal(s.selectedPreset, "default");
+  assert.equal(s.threadContextMode, "quoted");
+  assert.equal(s.maxArticleChars, 40000);
+  assert.equal(s.articleCacheMax, 20);
+  assert.equal(s.articleAnalysisEnabled, true);
+});
+
+test("recognized presets and context modes round-trip", () => {
+  assert.equal(normalizeSettings({ selectedPreset: "ai_tech" }).selectedPreset, "ai_tech");
+  assert.equal(normalizeSettings({ selectedPreset: "article" }).selectedPreset, "article");
+  assert.equal(normalizeSettings({ threadContextMode: "thread" }).threadContextMode, "thread");
+  assert.equal(normalizeSettings({ threadContextMode: "off" }).threadContextMode, "off");
+  assert.equal(normalizeSettings({ articleAnalysisEnabled: false }).articleAnalysisEnabled, false);
 });
 
 test("keeps custom dimensions and normalizes their shape", () => {

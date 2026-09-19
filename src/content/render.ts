@@ -172,3 +172,53 @@ function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): voi
   slot.appendChild(card);
   openDetail = card;
 }
+
+export function ensureArticleAction(article: Element, urls: string[], onAnalyze: (url: string) => void): void {
+  let row = article.querySelector<HTMLElement>(":scope .xs-article-row");
+  if (!urls.length) {
+    row?.remove();
+    return;
+  }
+  if (!row) {
+    row = document.createElement("div");
+    row.className = "xs-article-row";
+    const slot = getSlot(article);
+    if (slot?.parentElement) slot.parentElement.insertBefore(row, slot.nextSibling);
+    else article.appendChild(row);
+  }
+  row.textContent = "";
+  for (const url of urls.slice(0, 2)) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "xs-article-btn";
+    btn.dataset.url = url;
+    btn.textContent = "Analyze article";
+    btn.title = url;
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onAnalyze(url);
+    });
+    row.appendChild(btn);
+  }
+}
+
+export function fillArticleResult(article: Element, summary: string, title?: string): void {
+  let card = article.querySelector<HTMLElement>(":scope .xs-article-card");
+  if (!card) {
+    card = document.createElement("div");
+    card.className = "xs-article-card";
+    const row = article.querySelector(":scope .xs-article-row");
+    if (row?.parentElement) row.parentElement.insertBefore(card, row.nextSibling);
+    else article.appendChild(card);
+  }
+  card.textContent = "";
+  const k = document.createElement("div");
+  k.className = "xs-article-k";
+  k.textContent = "ARTICLE";
+  const v = document.createElement("div");
+  v.className = "xs-article-v";
+  v.textContent = summary;
+  card.append(k, v);
+  if (title) card.title = title;
+}

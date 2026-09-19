@@ -36,6 +36,12 @@ export interface SessionSnapshot {
   cacheHits: number;
   errors: number;
   lastError: string | null;
+  flagged: number;
+  articles: number;
+  articleCacheHits: number;
+  latencies: number[];
+  dimHits: Record<string, number>;
+  topPosts: { id: string; score: number; kind: "post" | "article"; title?: string }[];
 }
 
 /** Counters for this page load. Lifetime totals live in the service worker. */
@@ -49,6 +55,12 @@ export class SessionStats {
   private cacheHits = 0;
   private errors = 0;
   private lastError: string | null = null;
+  private flagged = 0;
+  private articles = 0;
+  private articleCacheHits = 0;
+  private latencies: number[] = [];
+  private dimHits: Record<string, number> = {};
+  private topPosts: { id: string; score: number; kind: "post" | "article"; title?: string }[] = [];
   private rate = new RateWindow(5000);
   private listeners = new Set<(s: SessionSnapshot) => void>();
   private now: () => number;
@@ -62,7 +74,35 @@ export class SessionStats {
     this.costUsd += r.costUsd;
     this.inputTokens += r.inputTokens;
     this.lastLatencyMs = r.latencyMs;
+    this.latencies.push(r.latencyMs);
     this.rate.add(judgments, this.now());
+    this.emit();
+  }
+
+  recordAnalysis(opts: {
+    costUsd: number;
+    inputTokens: number;
+    latencyMs: number;
+    judgments: number;
+    flagged: boolean;
+    hits: string[];
+    score: number;
+    id: string;
+    kind: "post" | "article";
+    title?: string;
+  }): void {
+    this.recordResult(opts, opts.judgments);
+    if (opts.kind === "article") this.articles += 1;
+    if (opts.flagged) this.flagged += 1;
+    for (const id of opts.hits) this.dimHits[id] = (this.dimHits[id] ?? 0) + 1;
+    this.topPosts.push({ id: opts.id, score: opts.score, kind: opts.kind, title: opts.title });
+    this.topPosts.sort((a, b) => b.score - a.score);
+    if (this.topPosts.length > 8) this.topPosts.length = 8;
+  }
+
+  recordArticleCacheHit(): void {
+    this.articleCacheHits += 1;
+    this.cacheHits += 1;
     this.emit();
   }
 
@@ -95,6 +135,12 @@ export class SessionStats {
       cacheHits: this.cacheHits,
       errors: this.errors,
       lastError: this.lastError,
+      flagged: this.flagged,
+      articles: this.articles,
+      articleCacheHits: this.articleCacheHits,
+      latencies: this.latencies.slice(),
+      dimHits: { ...this.dimHits },
+      topPosts: this.topPosts.slice(),
     };
   }
 

@@ -1,9 +1,10 @@
 // Service worker. The only place that holds the API key and talks to Jev.
 // The content script sends tweet state; this returns typed answers plus exact token usage.
-import type { AnalyzeReply, LifetimeStats, Message, TweetState } from "./shared/types.ts";
+import type { AnalyzeReply, ArticleState, FetchArticleReply, LifetimeStats, Message, TweetState } from "./shared/types.ts";
 import { loadSettings, onSettingsChange, STATS_KEY } from "./shared/settings.ts";
 import { buildQuestions } from "./shared/questions.ts";
 import { callJev, costUsd, JevError } from "./shared/jev.ts";
+import { PRESET_BY_ID, activeDimensions } from "./shared/presets.ts";
 
 const SAMPLE: TweetState = {
   text: "Most people will never understand this about building a startup.\n\nIt is not about the idea. It is about the founder.\n\nRT if you agree and follow me for more founder lessons.",
@@ -33,6 +34,10 @@ async function handle(msg: Message): Promise<unknown> {
       return analyze(SAMPLE);
     case "analyze":
       return analyze(msg.state);
+    case "analyzeArticle":
+      return analyzeArticle(msg.article);
+    case "fetchArticle":
+      return fetchArticle(msg.url);
     default:
       return { ok: false, error: "unknown message" };
   }
@@ -41,7 +46,7 @@ async function handle(msg: Message): Promise<unknown> {
 async function analyze(state: TweetState): Promise<AnalyzeReply> {
   const s = await settingsPromise;
   if (!s.apiKey) return { ok: false, error: "no API key", status: 401 };
-  const questions = buildQuestions(s.dimensions);
+  const questions = buildQuestions(activeDimensions(s));
   if (Object.keys(questions).length === 0) return { ok: false, error: "no enabled dimensions" };
   try {
     const { response, latencyMs } = await callJev({ model: s.model, state, questions }, { baseUrl: s.baseUrl, apiKey: s.apiKey });
@@ -51,6 +56,69 @@ async function analyze(state: TweetState): Promise<AnalyzeReply> {
   } catch (e) {
     const err = e as JevError;
     return { ok: false, error: err.message, status: err.status };
+  }
+}
+
+async function analyzeArticle(article: ArticleState): Promise<AnalyzeReply> {
+  const s = await settingsPromise;
+  if (!s.apiKey) return { ok: false, error: "no API key", status: 401 };
+  const questions = buildQuestions(PRESET_BY_ID.article.dimensions);
+  if (Object.keys(questions).length === 0) return { ok: false, error: "no enabled dimensions" };
+  try {
+    const { response, latencyMs } = await callJev({ model: s.model, state: article, questions }, { baseUrl: s.baseUrl, apiKey: s.apiKey });
+    const cost = costUsd(response.usage.input_tokens, s.pricePerMtok);
+    bumpStats(response.usage.input_tokens, cost);
+    return { ok: true, model: response.model, answers: response.answers, usage: response.usage, latencyMs, costUsd: cost };
+  } catch (e) {
+    const err = e as JevError;
+    return { ok: false, error: err.message, status: err.status };
+  }
+}
+
+const MAX_ARTICLE_BYTES = 1_500_000;
+
+async function fetchArticle(url: string): Promise<FetchArticleReply> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, error: "invalid url" };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return { ok: false, error: "unsupported url" };
+  const origin = `${parsed.origin}/*`;
+  if (!(await hasHostAccess(origin))) {
+    const granted = await requestHostAccess(origin);
+    if (!granted) return { ok: false, error: "article access not granted", needsGrant: true };
+  }
+  try {
+    const res = await fetch(parsed.toString(), { method: "GET", redirect: "follow", credentials: "omit" });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}`, status: res.status };
+    const ctype = res.headers.get("content-type") ?? "";
+    if (ctype && !/html|xml|text/i.test(ctype)) return { ok: false, error: `not HTML (${ctype})` };
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (buf.byteLength > MAX_ARTICLE_BYTES) return { ok: false, error: "article too large" };
+    const html = new TextDecoder("utf-8").decode(buf);
+    return { ok: true, html, finalUrl: res.url || parsed.toString() };
+  } catch (e) {
+    return { ok: false, error: String((e as Error)?.message ?? e) };
+  }
+}
+
+/** Optional host permissions keep article access off until the user asks for it. */
+async function hasHostAccess(origin: string): Promise<boolean> {
+  try {
+    if (await chrome.permissions.contains({ origins: [origin] })) return true;
+    return await chrome.permissions.contains({ origins: ["https://*/*", "http://*/*"] });
+  } catch {
+    return true;
+  }
+}
+
+async function requestHostAccess(origin: string): Promise<boolean> {
+  try {
+    return await chrome.permissions.request({ origins: [origin] });
+  } catch {
+    return false;
   }
 }
 

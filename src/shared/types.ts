@@ -39,7 +39,30 @@ export interface Settings {
   concurrency: number;
   cacheMax: number;
   dimensions: Dimension[];
+  /** Built-in analysis profile. Default uses `dimensions` (the v0.1 questions, user-editable). */
+  selectedPreset: PresetId;
+  /** When false, the Analyze article action is hidden. */
+  articleAnalysisEnabled: boolean;
+  /** How much extra DOM thread context to attach. Default is quoted-only (v0.1). */
+  threadContextMode: ThreadContextMode;
+  /** Hard cap on article body characters sent to Jev. */
+  maxArticleChars: number;
+  articleCacheMax: number;
   /** Bumped when a default changes in a way stored settings should follow. */
+  version: number;
+}
+
+export type PresetId = "default" | "signal" | "ai_tech" | "article";
+export type ThreadContextMode = "off" | "quoted" | "parent" | "thread";
+
+export interface Preset {
+  id: PresetId;
+  label: string;
+  description: string;
+  /** Built-in questions. Ignored for Default, which uses Settings.dimensions. */
+  dimensions: Dimension[];
+  contentType: "post" | "article";
+  context: ThreadContextMode;
   version: number;
 }
 
@@ -48,6 +71,31 @@ export interface TweetState {
   text: string;
   quoted_text?: string;
   is_reply: boolean;
+}
+
+/** Versioned analysis payload. Default post analysis still sends TweetState fields only. */
+export interface AnalysisState extends TweetState {
+  parent_text?: string;
+  thread?: string[];
+}
+
+export interface ArticleState {
+  kind: "article";
+  title: string;
+  url: string;
+  domain: string;
+  text: string;
+  truncated: boolean;
+}
+
+export interface ArticleExtract {
+  title: string;
+  url: string;
+  domain: string;
+  siteName?: string;
+  text: string;
+  truncated: boolean;
+  charCount: number;
 }
 
 export interface NoulAnswer {
@@ -98,6 +146,12 @@ export interface AnalysisResult {
   latencyMs: number;
   at: number;
   questionsHash: string;
+  kind?: "post" | "article";
+  url?: string;
+  title?: string;
+  truncated?: boolean;
+  contextHash?: string;
+  signalScore?: number;
 }
 
 export interface Verdict {
@@ -114,9 +168,18 @@ export interface Verdict {
 
 /** Messages between the content script and the service worker. */
 export type Message =
-  | { type: "analyze"; state: TweetState }
+  | { type: "analyze"; state: TweetState | AnalysisState }
+  | { type: "analyzeArticle"; article: ArticleState }
+  | { type: "fetchArticle"; url: string }
   | { type: "testConnection" }
   | { type: "openOptions" };
+
+export type FetchArticleReply =
+  | { ok: true; html: string; finalUrl: string }
+  | { ok: false; error: string; status?: number; needsGrant?: boolean };
+
+export type AnalyzeArticleMessage = { type: "analyzeArticle"; article: ArticleState };
+export type FetchArticleMessage = { type: "fetchArticle"; url: string };
 
 export type AnalyzeReply =
   | { ok: true; model: string; answers: Record<string, Answer>; usage: JevResponse["usage"]; latencyMs: number; costUsd: number }

@@ -9,7 +9,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 export const TARGETS = ["chromium", "firefox"];
 /** Stable Firefox identity so reloading a temporary add-on keeps settings and cache. */
 export const FIREFOX_GECKO_ID = "x-scanner@local";
-export const FIREFOX_STRICT_MIN_VERSION = "121.0";
+/** 128 is the first Firefox that understands optional_host_permissions, which article analysis needs. */
+export const FIREFOX_STRICT_MIN_VERSION = "128.0";
 
 export function parseBuildArgs(argv = process.argv.slice(2)) {
   const watch = argv.includes("--watch");
@@ -100,4 +101,3 @@ if (isMain()) {
     process.exit(1);
   }
 }
-
