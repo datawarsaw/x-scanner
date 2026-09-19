@@ -32,6 +32,16 @@ const dom = new JSDOM(`<!doctype html><html><body>
 <article data-testid="tweet" id="noid">
   <div data-testid="tweetText"><span>No permalink yet</span></div>
 </article>
+<article data-testid="tweet" id="quoteinner">
+  <div data-testid="User-Name"><a href="/frank/status/6006"><time>5h</time></a></div>
+  <div data-testid="tweetText"><span>Worth reading.</span></div>
+  <div role="link" tabindex="0">
+    <div data-testid="User-Name"><a href="/gina/status/7007"><time>6h</time></a></div>
+    <div><span>Replying to </span><a href="/someone">@someone</a></div>
+    <div data-testid="tweetText"><span>Their reply, quoted by me.</span></div>
+  </div>
+  <div role="group"></div>
+</article>
 </body></html>`);
 
 let extract: typeof import("../../src/content/extract.ts");
@@ -74,4 +84,22 @@ test("returns null without a permalink", () => {
 
 test("reads the logged in handle from the nav", () => {
   assert.equal(extract.loggedInHandle(dom.window.document), "demo_user");
+});
+
+// The reply filter depends on these classifications, so pin them down explicitly.
+test("a root post is not a reply", () => {
+  assert.equal(extract.isReply(dom.window.document.getElementById("plain")!), false);
+  assert.equal(extract.isReply(dom.window.document.getElementById("promoted")!), false);
+  assert.equal(extract.isReply(dom.window.document.getElementById("noid")!), false);
+});
+
+test("a post that quotes a reply is not itself a reply", () => {
+  const article = dom.window.document.getElementById("quoteinner")!;
+  assert.equal(extract.isReply(article), false);
+  assert.equal(extract.extractTweet(article)!.state.is_reply, false);
+});
+
+test("a reply marker inside the post itself is detected", () => {
+  assert.equal(extract.isReply(dom.window.document.getElementById("reply")!), true);
+  assert.equal(extract.isReply(dom.window.document.getElementById("quote")!), false);
 });

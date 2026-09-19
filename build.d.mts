@@ -2,6 +2,10 @@ export const TARGETS: readonly ["chromium", "firefox"];
 export const FIREFOX_GECKO_ID: string;
 export const FIREFOX_STRICT_MIN_VERSION: string;
 
+export function isSafeBuildSha(value: unknown): boolean;
+
+export function gitBuildSha(cwd?: string): string;
+
 export function parseBuildArgs(argv?: string[]): {
   watch: boolean;
   e2e: boolean;

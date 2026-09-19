@@ -27,6 +27,22 @@ The loadable artifact is dist-firefox/. Optional zip:
 
 If you reload the add-on after rebuilding, load the same dist-firefox/manifest.json again.
 
+### 2.1 Confirm which build is actually running, before anything else
+
+A temporary add-on keeps running the code it was loaded with. Rebuilding dist-firefox does **not** prove that the
+running instance has the new code, and About:debugging will happily show the old one. Check identity first, and do not
+continue into reply testing until these three values are right.
+
+1. Open x-scanner settings and scroll to the About section.
+2. Confirm it reads Version: 0.5.2
+3. Confirm Build: shows the short sha of the commit you built (the build prints it, for example "build fad243e"). If
+   it reads unknown, the artifact was built outside a git checkout.
+4. Confirm Browser target: Firefox
+5. Confirm Analyze replies/comments is unchecked and its Current value line says OFF.
+6. If any of these disagree, remove and re-add the temporary add-on from dist-firefox/manifest.json, then check again.
+7. The HUD in the corner repeats the same identity quietly as v0.5.2 · <sha>, so you can confirm it on x.com itself
+   without opening about:debugging.
+
 ## 3. Settings
 
 Never paste a real key into docs, tickets, screenshots, or chat.
@@ -108,12 +124,24 @@ left off. Confirm:
 
 Analyze replies/comments is off by default. This is the check that the filter is real and reversible.
 
-1. With it off, open a thread. The root post gets a chip; the replies under it get nothing, and the HUD
-   analyzed count and cost do not move as you scroll past comments.
-2. Open the extension inspector and confirm no request was made for the reply text.
-3. Turn Analyze replies/comments on and save.
-4. Reload x.com and open the same thread. Replies should now be analyzed as they were in v0.5.
-5. Turn it back off and confirm the reply chips disappear and no further reply requests are made.
+Do step 2.1 first. If About does not read Version 0.5.2 with Analyze replies/comments OFF, none of the results below mean
+anything.
+
+1. Open one individual post (its own /status/ URL) that has several replies under it.
+2. The root post must get a chip. Each comment under it must get no chip at all, and scrolling past them must leave the
+   HUD analyzed count and the cost figure unchanged.
+3. In the page console, read what the classifier decided for each post:
+
+       [...document.querySelectorAll("article")].map(a => [a.querySelector(".xs-slot")?.dataset.xsReply, (a.textContent || "").slice(0, 40)])
+
+   The root post must read false and every comment must read true. This is the diagnostic that separates the two
+   possible causes: a comment that is scored while reading false means reply detection missed it in this markup, while a
+   missing attribute on any slot means the running build predates the diagnostic and step 2.1 was not satisfied.
+4. Open the extension inspector and confirm no request was made for the reply text.
+5. Turn Analyze replies/comments on and save, then reload x.com and open the same post. Replies should now be analyzed
+   exactly as they were in v0.5, with thread context attaching the parent.
+6. Turn it back off. The reply chips must disappear again, including any built from cached results, and no further reply
+   requests may be made.
 
 ## 10. Real Jev / TypeSafe
 

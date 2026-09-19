@@ -225,13 +225,47 @@ test("reply filter: main posts analyze by default, replies stay unbilled until e
   // Article analysis is untouched by the reply filter.
   assert.equal(ui.articleBtn, true);
 
+  // The slot publishes the classifier's own verdict. That is what separates a detection miss from a
+  // stale build when someone inspects the page: a scored reply reads false, a missing attribute reads old build.
+  const verdicts = await page.evaluate(() => {
+    const arts = Array.from(document.querySelectorAll("article"));
+    const replyArt = arts.find((x) => (x.textContent || "").includes("Agreed, and the storage")) as HTMLElement | undefined;
+    return {
+      root: (arts[0] as HTMLElement | undefined)?.querySelector(".xs-slot")?.getAttribute("data-xs-reply") ?? null,
+      reply: replyArt?.querySelector(".xs-slot")?.getAttribute("data-xs-reply") ?? null,
+    };
+  });
+  assert.equal(verdicts.root, "false");
+  assert.equal(verdicts.reply, "true");
+
   // Turning replies on restores the existing behaviour, thread context included.
   await configure(sw, { apiKey: "test-key", baseUrl: base, scope: "all", dwellMs: 0, concurrency: 6, selectedPreset: "signal", analyzeReplies: true });
   await page.waitForFunction(() => document.querySelectorAll('.xs-slot[data-state="done"]').length >= 2, null, { timeout: 20000 });
-  await page.waitForTimeout(800);
+  // Long enough for the debounced cache write to land, so the reply really is cached before it is hidden.
+  await page.waitForTimeout(1600);
   const reply = server.requests.find((r) => r.text.startsWith("Agreed, and the storage"));
   assert.ok(reply, "enabling replies restores reply analysis");
   assert.equal(reply!.is_reply, true);
   assert.match(reply!.parent_text || "", /sharded queue/);
+
+  // Turning it back off hides the reply again, including the chip built from its now-cached result, and bills nothing.
+  const replyBills = () => server.requests.filter((r) => r.text.startsWith("Agreed, and the storage")).length;
+  const before = replyBills();
+  assert.equal(before, 1, "the reply was billed exactly once while replies were on");
+  await configure(sw, { apiKey: "test-key", baseUrl: base, scope: "all", dwellMs: 0, concurrency: 6, selectedPreset: "signal", analyzeReplies: false });
+  await page.waitForFunction(() => {
+    const arts = Array.from(document.querySelectorAll("article"));
+    const replyArt = arts.find((x) => (x.textContent || "").includes("Agreed, and the storage")) as HTMLElement | undefined;
+    return (replyArt?.querySelector(".xs-slot") as HTMLElement | null)?.dataset.state === "filtered";
+  }, null, { timeout: 20000 });
+  const hidden = await page.evaluate(() => {
+    const arts = Array.from(document.querySelectorAll("article"));
+    const replyArt = arts.find((x) => (x.textContent || "").includes("Agreed, and the storage")) as HTMLElement | undefined;
+    const slot = replyArt?.querySelector(".xs-slot") as HTMLElement | null;
+    return { display: slot ? getComputedStyle(slot).display : null };
+  });
+  assert.equal(hidden.display, "none");
+  await page.waitForTimeout(1000);
+  assert.equal(replyBills(), before, "a hidden cached reply is never billed again");
   assert.deepEqual(errors, []);
 });

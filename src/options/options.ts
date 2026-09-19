@@ -4,6 +4,7 @@ import { loadSettings, loadStats, normalizeSettings, saveSettings, STATS_KEY } f
 import { DEFAULT_DIMENSIONS, validateDimension } from "../shared/questions.ts";
 import { answerValue } from "../content/labels.ts";
 import { PRESETS, PRESET_BY_ID } from "../shared/presets.ts";
+import { BUILD_SHA, browserTarget, type BuildManifest } from "../shared/build.ts";
 
 const $ = <T extends HTMLElement>(sel: string, root: ParentNode = document): T => {
   const el = root.querySelector<T>(sel);
@@ -34,6 +35,7 @@ function fillForm(s: Settings): void {
   $<HTMLInputElement>("#articleCacheMax").value = String(s.articleCacheMax);
   renderDims(s.dimensions);
   renderPreset();
+  renderReplyState();
   void renderArticleAccess();
 }
 
@@ -208,12 +210,28 @@ function flash(el: HTMLElement, text: string, cls: "ok" | "err" | "muted"): void
   el.className = cls;
 }
 
+/** Mirrors the checkbox so the current value is readable at a glance, not only by its tick. */
+function renderReplyState(): void {
+  const on = $<HTMLInputElement>("#analyzeReplies").checked;
+  $("#replyState").textContent = on ? "ON \u00b7 replies and comments are analyzed" : "OFF \u00b7 main posts only (default)";
+}
+
+/** Version comes from the running manifest; build and target describe the artifact that is actually loaded. */
+function renderAbout(): void {
+  const manifest = chrome.runtime.getManifest() as BuildManifest;
+  $("#aboutVersion").textContent = manifest.version ?? "unknown";
+  $("#aboutBuild").textContent = BUILD_SHA;
+  $("#aboutTarget").textContent = browserTarget(manifest);
+}
+
 async function main(): Promise<void> {
   renderPresetOptions();
   fillForm(await loadSettings());
   await renderStats();
+  renderAbout();
 
   $("#preset").addEventListener("change", () => renderPreset());
+  $("#analyzeReplies").addEventListener("change", () => renderReplyState());
 
   $("#grantArticle").addEventListener("click", async () => {
     const out = $("#articleAccessOut");

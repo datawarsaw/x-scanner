@@ -130,6 +130,9 @@ Measured on 2026-09-18 with `jev-1.13.0` over the 18 sample posts in `test/fixtu
 - **Advanced**: model (pinned to `jev-1.13.0` so thresholds keep their meaning), price, base URL,
   concurrency, look-ahead distance, wait before analyzing, cache size.
 - **Lifetime**: totals across sessions, a reset, and a cache clear.
+- **About**: read-only version, build and browser target. The version is read from the running extension manifest,
+  so a stale temporary add-on reports its own version rather than the one you just built. The HUD repeats the same
+  identity quietly in the corner.
 
 The questions default to English on purpose. Jev's docs say English is where its accuracy is best and
 CJK is handled but not equally well. The post text goes in as written, in whatever language.

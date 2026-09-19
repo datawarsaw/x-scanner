@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { startServer } from "./server.ts";
 import { chromePath } from "./chrome.ts";
@@ -269,6 +269,20 @@ test("options page: renders dimensions, test connection and save work", async (t
   await page.waitForSelector(".dim");
   assert.equal(await page.locator(".dim").count(), 6);
   assert.equal(await page.inputValue("#model"), "jev-1.13.0");
+
+  // About reads the running manifest, so the version on screen is the one actually loaded, never a literal
+  // in the source. Compare it against the manifest that was built for this run rather than a hardcoded string.
+  const builtManifest = JSON.parse(readFileSync(path.join(DIST, "manifest.json"), "utf8")) as { version: string };
+  assert.equal(await page.textContent("#aboutVersion"), builtManifest.version);
+  assert.match((await page.textContent("#aboutBuild")) ?? "", /^([0-9a-f]{7,40}|unknown)$/);
+  assert.equal(await page.textContent("#aboutTarget"), "Chromium");
+
+  // The reply filter's current value is readable as text, not only as a tick.
+  assert.match((await page.textContent("#replyState")) ?? "", /OFF/);
+  await page.click("#analyzeReplies");
+  assert.match((await page.textContent("#replyState")) ?? "", /ON/);
+  await page.click("#analyzeReplies");
+  assert.match((await page.textContent("#replyState")) ?? "", /OFF/);
 
   await page.fill("#apiKey", "test-key");
   await page.click("details > summary");

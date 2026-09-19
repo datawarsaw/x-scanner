@@ -198,6 +198,13 @@
 .xs-hud.xs-collapsed .xs-hud-title {
   margin-bottom: 0;
 }
+/* Quiet build identity so a stale temporary add-on is obvious at a glance. */
+.xs-hud-ver {
+  margin-top: 3px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  opacity: 0.38;
+}
 
 /* Article action row and compact article result. */
 .xs-article-row {

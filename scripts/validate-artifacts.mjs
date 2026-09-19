@@ -86,4 +86,9 @@ assertShared(chromium, chromiumDir);
 assertShared(firefox, firefoxDir);
 assertChromium(chromium, chromiumDir);
 assertFirefox(firefox, firefoxDir);
+// The version shown in the UI comes from the generated manifest, so these must agree.
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+for (const [name, manifest] of [[chromiumDir, chromium], [firefoxDir, firefox]]) {
+  if (manifest.version !== pkg.version) fail(`${name}: manifest version ${manifest.version} != package.json ${pkg.version}`);
+}
 console.log("artifacts ok");

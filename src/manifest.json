@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "x-scanner",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Labels posts you scroll past on X with typed Jev judgments, analyzes linked articles on request, and shows what the session cost. Bring your own TypeSafe key.",
   "homepage_url": "https://github.com/oso95/x-scanner",
   "permissions": ["storage"],

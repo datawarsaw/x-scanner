@@ -226,3 +226,23 @@ button:hover {
   padding: 2px;
   margin: 0;
 }
+.about {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+}
+.about > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.about span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.about b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}

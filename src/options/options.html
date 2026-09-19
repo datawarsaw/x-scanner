@@ -63,6 +63,7 @@
           <label>Only when logged in as <input id="accountHandle" placeholder="handle, empty for any" spellcheck="false" /></label>
         </div>
         <label class="check"><input id="analyzeReplies" type="checkbox" /> Analyze replies/comments</label>
+        <p class="muted">Current value: <b id="replyState">–</b></p>
         <p class="muted">
           Off by default. Replies and comments are then never sent to Jev, so they cost nothing and show no chip.
           Text quoted inside a post is not a reply and is always included. Author threads are not detected yet, so
@@ -131,6 +132,19 @@
           <button id="resetStats" type="button" class="ghost">Reset counters</button>
           <button id="clearCache" type="button" class="ghost">Clear result cache</button>
           <button id="clearArticleCache" type="button" class="ghost">Clear article cache</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>About</h2>
+        <p class="muted">
+          Read only. Version is read from the running extension manifest, so a stale temporary build shows its own
+          version here rather than the one you just built.
+        </p>
+        <div class="about">
+          <div><span>Version</span><b id="aboutVersion">–</b></div>
+          <div><span>Build</span><b id="aboutBuild">–</b></div>
+          <div><span>Browser target</span><b id="aboutTarget">–</b></div>
         </div>
       </section>
 

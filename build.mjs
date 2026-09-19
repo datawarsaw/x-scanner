@@ -2,6 +2,7 @@
 // Chromium (default) → dist-chromium/. Firefox/Zen → dist-firefox/. --e2e → dist-e2e/ with
 // http://127.0.0.1 matches so the fixture timeline can be tested in Chromium.
 import * as esbuild from "esbuild";
+import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -11,6 +12,28 @@ export const TARGETS = ["chromium", "firefox"];
 export const FIREFOX_GECKO_ID = "x-scanner@local";
 /** 128 is the first Firefox that understands optional_host_permissions, which article analysis needs. */
 export const FIREFOX_STRICT_MIN_VERSION = "128.0";
+
+/** Only a plain commit sha is allowed through to the UI; nothing machine specific ever reaches it. */
+export function isSafeBuildSha(value) {
+  return typeof value === "string" && /^[0-9a-f]{7,40}$/.test(value);
+}
+
+/**
+ * Short HEAD sha for the build identity. Never fails the build: any problem, including a missing git,
+ * a detached checkout without git, or unparseable output, yields "unknown".
+ */
+export function gitBuildSha(cwd = fileURLToPath(new URL(".", import.meta.url))) {
+  try {
+    const out = execFileSync("git", ["rev-parse", "--short", "HEAD"], {
+      cwd,
+      stdio: ["ignore", "pipe", "ignore"],
+      encoding: "utf8",
+    }).trim();
+    return isSafeBuildSha(out) ? out : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 export function parseBuildArgs(argv = process.argv.slice(2)) {
   const watch = argv.includes("--watch");
@@ -59,6 +82,7 @@ function copyStatic(outdir, opts) {
 export async function buildExtension(opts) {
   const { watch } = opts;
   const outdir = outdirFor(opts);
+  const buildSha = gitBuildSha();
   rmSync(outdir, { recursive: true, force: true });
   mkdirSync(outdir, { recursive: true });
 
@@ -72,6 +96,8 @@ export async function buildExtension(opts) {
     format: "iife",
     target: "chrome120",
     outdir,
+    // Substituted into src/shared/build.ts so the UI can name the running revision.
+    define: { __XS_BUILD_SHA__: JSON.stringify(buildSha) },
     sourcemap: watch ? "inline" : false,
     logLevel: "info",
     plugins: [{ name: "static", setup: (b) => b.onEnd(() => copyStatic(outdir, opts)) }],
@@ -85,6 +111,7 @@ export async function buildExtension(opts) {
   await ctx.rebuild();
   await ctx.dispose();
   console.log(`built ${opts.target} → ${outdir}/`);
+  console.log("build " + buildSha);
 }
 
 function isMain() {

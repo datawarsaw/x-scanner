@@ -1,4 +1,5 @@
 import type { SessionSnapshot } from "./stats.ts";
+import { versionLabel } from "../shared/build.ts";
 
 const COLLAPSE_KEY = "xs-hud-collapsed";
 
@@ -57,6 +58,10 @@ export class Hud {
       this.onOpenSession();
     });
     this.body.appendChild(sess);
+    // Diagnostic only: tells the tester which revision is actually running without about:debugging.
+    const ver = el("div", "xs-hud-ver");
+    ver.textContent = versionLabel(chrome.runtime.getManifest().version);
+    this.body.appendChild(ver);
     this.root.appendChild(this.body);
 
     let collapsed = false;

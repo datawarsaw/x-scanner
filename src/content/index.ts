@@ -125,6 +125,7 @@ class App {
     this.slots.set(id, slot);
     this.attachArticles(article);
     if (this.filteredReply(article)) {
+      slot.dataset.xsReply = "true";
       markSlot(slot, "filtered");
       return;
     }
@@ -140,6 +141,8 @@ class App {
     if (!t) return;
     const slot = ensureSlot(article, t.id);
     this.slots.set(t.id, slot);
+    // Diagnostic for the reply filter: what the classifier decided about this post.
+    slot.dataset.xsReply = String(t.state.is_reply);
     if (!this.settings.analyzeReplies && t.state.is_reply) {
       markSlot(slot, "filtered");
       return;
