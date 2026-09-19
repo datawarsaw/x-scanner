@@ -12,6 +12,7 @@
   .col { flex:1; min-width:0; }
   [data-testid="tweetText"] { white-space: pre-wrap; margin-top:2px; word-wrap: break-word; }
   [data-testid="tweetText"] a { color:#1d9bf0; }
+  div[role="link"] { border:1px solid #2f3336; border-radius:16px; padding:12px; margin-top:10px; }
   div[role="group"] { display:flex; justify-content:space-between; max-width:420px; color:#71767b; padding:6px 0 4px; font-size:13px; }
   .replying { color:#71767b; font-size:14px; }
   .replying a { color:#1d9bf0; text-decoration:none; }
@@ -27,6 +28,7 @@
       <div data-testid="User-Name"><a href="/dave"><span>Dave</span></a><a href="/dave/status/8301"><time datetime="2026-09-18T09:00:00Z">1h</time></a></div>
       
       <div data-testid="tweetText"><span>We replaced the per-request lock with a sharded queue and saw 41% more throughput on 12 clusters.</span></div>
+      
       <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
     </div>
   </article></div>
@@ -35,7 +37,8 @@
     <div class="col">
       <div data-testid="User-Name"><a href="/erin"><span>Erin</span></a><a href="/erin/status/8302"><time datetime="2026-09-18T09:00:00Z">1h</time></a></div>
       <div class="replying"><span>Replying to </span><a href="/dave">@dave</a></div>
-      <div data-testid="tweetText"><span>Agreed, and the storage layer is still the bottleneck in our numbers.</span></div>
+      <div data-testid="tweetText"><span>Agreed, and the storage layer is still the bottleneck in our numbers. Write-up: <a href="/article.html">example.com/systems-report</a></span></div>
+      
       <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
     </div>
   </article></div>

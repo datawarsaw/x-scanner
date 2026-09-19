@@ -62,6 +62,12 @@
           </label>
           <label>Only when logged in as <input id="accountHandle" placeholder="handle, empty for any" spellcheck="false" /></label>
         </div>
+        <label class="check"><input id="analyzeReplies" type="checkbox" /> Analyze replies/comments</label>
+        <p class="muted">
+          Off by default. Replies and comments are then never sent to Jev, so they cost nothing and show no chip.
+          Text quoted inside a post is not a reply and is always included. Author threads are not detected yet, so
+          later posts in your own thread may be skipped while this is off.
+        </p>
       </section>
 
       <section>

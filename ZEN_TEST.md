@@ -35,6 +35,7 @@ Never paste a real key into docs, tickets, screenshots, or chat.
 2. Enter your TypeSafe API key by hand.
 3. Click Test connection. Expect the Jev model, latency, token count and cost.
 4. Click Save, then reload the settings page and confirm everything stayed.
+5. Confirm Analyze replies/comments exists and is unchecked, which is the default.
 
 ## 4. Presets
 
@@ -65,6 +66,10 @@ Article access is a separate, optional permission, so this is the one step that 
 
 ## 6. Thread context
 
+Thread context only applies to posts that are analyzed, and replies are off by default. Turn on Analyze
+replies/comments in settings before running this section, and make sure the parent post is rendered on
+the same page.
+
 1. Switch to Signal and open a post with replies on its own URL.
 2. Confirm replies are analyzed and chips render under the right post.
 3. With a parent visible above the reply, confirm the reply's request carries parent context. The detail card shows token
@@ -83,33 +88,47 @@ Article access is a separate, optional permission, so this is the one step that 
 
 ## 8. Real x.com, basic behaviour (v0.1 regression)
 
-Scroll a logged-in x.com home timeline, then a profile, a thread, and search. Confirm:
+Scroll a logged-in x.com home timeline, then a profile, a thread, and search, with Analyze replies/comments
+left off. Confirm:
 
+- replies and comments show no chip at all, and add nothing to the analyzed count or the cost figure
+- the root post of a conversation is still analyzed, and so is a post that quotes another post
 - the HUD appears and posts receive slots
 - judgments arrive, ordinary posts render clean or flagged
 - promoted posts are skipped, text-less posts are skipped
 - quoted posts include quoted content
-- replies are classified as replies
+- with Analyze replies/comments on, replies are classified as replies
 - fast scrolling does not bill queued posts that leave the active area
 - concurrency stays bounded (default 6 in flight)
 - scrolling back and reloading use cache
 - the settings link and the detail card work
 - no obvious console errors, in the page or the extension inspector
 
-## 9. Real Jev / TypeSafe
+## 9. Replies and comments
+
+Analyze replies/comments is off by default. This is the check that the filter is real and reversible.
+
+1. With it off, open a thread. The root post gets a chip; the replies under it get nothing, and the HUD
+   analyzed count and cost do not move as you scroll past comments.
+2. Open the extension inspector and confirm no request was made for the reply text.
+3. Turn Analyze replies/comments on and save.
+4. Reload x.com and open the same thread. Replies should now be analyzed as they were in v0.5.
+5. Turn it back off and confirm the reply chips disappear and no further reply requests are made.
+
+## 10. Real Jev / TypeSafe
 
 Confirm TypeSafe connection succeeds, real requests reach Jev, the response model is shown, token usage is returned, and the
 HUD cost changes. In the network inspector, confirm the only external destinations are api.typesafe.ai and the article
 origins you explicitly asked to analyze.
 
-## 10. Firefox / Zen lifecycle
+## 11. Firefox / Zen lifecycle
 
 1. Analyze several posts.
 2. Leave the browser idle long enough for the background event page to become inactive if Zen suspends it.
 3. Resume scrolling on x.com.
 4. Verify new analyses still work after the background wakes.
 
-## 11. Cache
+## 12. Cache
 
 1. Analyze visible posts, then scroll far away and back. Cached judgments should reappear with no new calls.
 2. Reload x.com. The first screen should still come from cache.
@@ -121,4 +140,3 @@ Zen exits.
 ## Record
 
 Mark each step VERIFIED or FAILED as you run it. Automated tests do not replace this checklist.
-

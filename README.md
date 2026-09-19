@@ -121,8 +121,9 @@ Measured on 2026-09-18 with `jev-1.13.0` over the 18 sample posts in `test/fixtu
 - **Enabled**: master switch.
 - **Scope**: everywhere on X (default), or the home timeline only.
 - **Only when logged in as**: a handle, for people who switch accounts and want it on one.
-**Analysis preset** and **thread context**: which typed questions run, and how much of a thread is attached.
-**Articles**: whether the *Analyze article* action appears, the character cap sent to Jev, the article cache size,
+- **Analyze replies/comments**: off by default. While it is off, posts X marks as replies are never sent to Jev, so they add no cost and show no chip. Text quoted inside a post is not a reply and is always included.
+- **Analysis preset** and **thread context**: which typed questions run, and how much of a thread is attached.
+- **Articles**: whether the *Analyze article* action appears, the character cap sent to Jev, the article cache size,
   and a one-time **Grant article access** control.
 - **Dimensions**: add, remove, disable, rename, switch between Noul and Score, edit the question, levels
   and criteria, set the threshold, whether the flag fires above or below it, and the flag color.
@@ -215,6 +216,7 @@ set `CHROME_PATH`). Branded Google Chrome no longer accepts `--load-extension`.
 - Article extraction is a small readable-text pass, not a reader-mode engine. Pages that render entirely in client-side JavaScript, or that hide the body behind a paywall or a consent wall, yield little or no text, and the card says so rather than sending page chrome.
 - Thread context is read from the DOM of the page you are on, and only on a post's own URL. A home-timeline neighbour is never treated as a parent.
 - Session ranking uses a fixed weighted sum over each preset's typed answers. It is a local sort key, not a judgement about the post's value.
+- Replies by the original author that form a thread are skipped while Analyze replies/comments is off, because X does not mark that distinction. Author-thread detection is intentionally deferred.
 - Works on x.com as of September 2026. The selectors live in `src/content/selectors.ts`; if X changes
   its markup, that is the file to fix. The automated tests run against the fixture, not live X.
 - Promoted posts are recognized by the "Ad" label in a handful of UI languages. Add yours to

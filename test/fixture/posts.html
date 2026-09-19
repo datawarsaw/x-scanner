@@ -12,6 +12,7 @@
   .col { flex:1; min-width:0; }
   [data-testid="tweetText"] { white-space: pre-wrap; margin-top:2px; word-wrap: break-word; }
   [data-testid="tweetText"] a { color:#1d9bf0; }
+  div[role="link"] { border:1px solid #2f3336; border-radius:16px; padding:12px; margin-top:10px; }
   div[role="group"] { display:flex; justify-content:space-between; max-width:420px; color:#71767b; padding:6px 0 4px; font-size:13px; }
   .replying { color:#71767b; font-size:14px; }
   .replying a { color:#1d9bf0; text-decoration:none; }
@@ -27,6 +28,7 @@
       <div data-testid="User-Name"><a href="/alice"><span>Alice</span></a><a href="/alice/status/8101"><time datetime="2026-09-18T09:00:00Z">1h</time></a></div>
       
       <div data-testid="tweetText"><span>Scheduler latency dropped 41% across 12 clusters after we removed the per-request lock, per the March internal report.</span></div>
+      
       <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
     </div>
   </article></div>
@@ -36,6 +38,17 @@
       <div data-testid="User-Name"><a href="/bob"><span>Bob</span></a><a href="/bob/status/8102"><time datetime="2026-09-18T09:00:00Z">1h</time></a></div>
       
       <div data-testid="tweetText"><span>Honestly the whole thing is just vibe. RT if you agree and follow me for more founder lessons.</span></div>
+      
+      <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
+    </div>
+  </article></div>
+  <div data-testid="cellInnerDiv"><article data-testid="tweet" role="article" tabindex="0">
+    <div class="avatar"></div>
+    <div class="col">
+      <div data-testid="User-Name"><a href="/dana"><span>Dana</span></a><a href="/dana/status/8103"><time datetime="2026-09-18T09:00:00Z">1h</time></a></div>
+      
+      <div data-testid="tweetText"><span>This.</span></div>
+      <div role="link" tabindex="0"><div data-testid="User-Name"><a href="/paul"><span>paul</span></a><a href="/paul/status/8999"><time datetime="2026-09-17T10:00:00Z">Sep 17</time></a></div><div data-testid="tweetText"><span>Quoted wisdom here, which is not a reply and must still be analyzed.</span></div></div>
       <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
     </div>
   </article></div>

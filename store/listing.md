@@ -36,6 +36,9 @@ Four analysis presets - Default, Signal, AI / Tech and Article - let you switch 
 run without editing anything by hand. Results are cached per preset, so switching never reuses one
 preset's answers for another.
 
+Replies and comments are skipped by default, so browsing a timeline costs a fraction of what it would if
+every comment were analyzed. Turn them on in settings when you want them.
+
 When a post links to an article, a subtle Analyze article action appears. Nothing is fetched or billed
 until you press it, and the readable text is capped, cached by canonical URL and never re-fetched. On a
 post's own page the Signal and AI / Tech presets can attach the quoted post, the direct parent, or a

@@ -3,7 +3,7 @@ import { SEL } from "./selectors.ts";
 import { formatValue } from "./labels.ts";
 
 export const SLOT_CLASS = "xs-slot";
-export type SlotState = "idle" | "queued" | "inflight" | "done" | "error" | "skipped";
+export type SlotState = "idle" | "queued" | "inflight" | "done" | "error" | "skipped" | "filtered";
 
 const data = new WeakMap<HTMLElement, { vs: Verdict[]; r: AnalysisResult }>();
 let openDetail: HTMLElement | null = null;

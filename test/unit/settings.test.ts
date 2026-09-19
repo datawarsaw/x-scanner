@@ -11,7 +11,7 @@ test("fills defaults for a missing or partial object", () => {
   assert.equal(s.concurrency, 32);
   assert.equal(s.dwellMs, 0);
   assert.equal(s.lookaheadPx, 800);
-  assert.equal(s.version, 6);
+  assert.equal(s.version, 7);
   assert.equal(s.dimensions.length, 6);
 });
 
@@ -22,6 +22,33 @@ test("v0.5 fields default to Default preset, articles on, quoted-only context", 
   assert.equal(s.threadContextMode, "quoted");
   assert.equal(s.maxArticleChars, 8000);
   assert.equal(s.articleCacheMax, 200);
+  assert.equal(s.analyzeReplies, false);
+});
+
+test("replies are skipped by default and only turn on when explicitly set", () => {
+  assert.equal(DEFAULT_SETTINGS.analyzeReplies, false);
+  assert.equal(normalizeSettings(undefined).analyzeReplies, false);
+  assert.equal(normalizeSettings({}).analyzeReplies, false);
+  assert.equal(normalizeSettings({ analyzeReplies: true }).analyzeReplies, true);
+  assert.equal(normalizeSettings({ analyzeReplies: false }).analyzeReplies, false);
+  assert.equal(normalizeSettings({ analyzeReplies: "yes" }).analyzeReplies, false);
+});
+
+test("a pre-v7 install gains the reply default and keeps everything else", () => {
+  const s = normalizeSettings({
+    version: 6,
+    apiKey: "keep-me",
+    selectedPreset: "ai_tech",
+    articleAnalysisEnabled: false,
+    threadContextMode: "thread",
+    dimensions: [{ id: "mine", label: "mine", type: "noul", instructions: "?", threshold: 0.5 }],
+  });
+  assert.equal(s.analyzeReplies, false);
+  assert.equal(s.apiKey, "keep-me");
+  assert.equal(s.selectedPreset, "ai_tech");
+  assert.equal(s.articleAnalysisEnabled, false);
+  assert.equal(s.threadContextMode, "thread");
+  assert.deepEqual(s.dimensions.map((d) => d.id), ["mine"]);
 });
 
 test("an existing v5 install keeps its settings and gains Default preset", () => {

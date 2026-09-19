@@ -33,7 +33,9 @@ test("timeline: dwell triggers analysis, pills render, promoted skipped, cache s
   const sw = ctx.serviceWorkers()[0] ?? (await ctx.waitForEvent("serviceworker", { timeout: 15000 }));
   await sw.evaluate(async (baseUrl: string) => {
     await chrome.storage.local.set({
-      settings: { apiKey: "test-key", baseUrl, scope: "all", dwellMs: 200, concurrency: 6 },
+      // This suite is the v0.1 behaviour check, which also analyzed replies; the v0.5.1 reply filter
+      // has its own coverage in v05.test.ts.
+      settings: { apiKey: "test-key", baseUrl, scope: "all", dwellMs: 200, concurrency: 6, analyzeReplies: true },
     });
   }, `http://127.0.0.1:${server.port}`);
 

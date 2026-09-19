@@ -10,6 +10,8 @@ API and shows the answers next to the post. It has no server of its own and no a
 - **Post text.** The text of a post, the text of a quoted post if there is one, and whether the post is
   a reply, are sent to `api.typesafe.ai` when the post comes near your viewport. Nothing else about the
   post is sent: no author name, handle, post id, media, or engagement numbers.
+- **Replies and comments stay behind by default.** Posts X marks as replies are not sent anywhere at all
+  unless you turn on Analyze replies/comments in settings.
 - **Thread context, when the preset asks for it.** On a post's own page, the Signal and AI / Tech presets
   also send the quoted post, the direct parent post, and up to two preceding posts, so a reply can be
   judged against what it answers. The Default preset sends the quoted post only, exactly as before.

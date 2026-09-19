@@ -60,6 +60,10 @@
   opacity: 0.6;
   font-style: italic;
 }
+/* Replies and comments when reply analysis is off: no chip, and no layout space either. */
+.xs-slot[data-state="filtered"] {
+  display: none;
+}
 
 /* Detail card: opens under the slot on click. */
 .xs-detail {

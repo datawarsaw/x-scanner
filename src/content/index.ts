@@ -1,8 +1,8 @@
 // Content script entry. Wires the watcher, scheduler, cache, HUD and renderer together.
 import type { AnalysisResult, AnalyzeReply, Settings, TweetState } from "../shared/types.ts";
-import { loadSettings, onSettingsChange, saveSettings } from "../shared/settings.ts";
+import { loadSettings, onSettingsChange } from "../shared/settings.ts";
 import { buildQuestions, questionsHash } from "../shared/questions.ts";
-import { extractTweet, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
+import { extractTweet, isReply, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
 import { TweetWatcher } from "./observe.ts";
 import { Scheduler } from "./queue.ts";
 import { ResultStore } from "./store.ts";
@@ -124,6 +124,10 @@ class App {
     if (!id) return;
     this.slots.set(id, slot);
     this.attachArticles(article);
+    if (this.filteredReply(article)) {
+      markSlot(slot, "filtered");
+      return;
+    }
     const cached = this.store.get(this.cacheKey(article, id));
     if (cached) {
       this.render(slot, cached);
@@ -136,6 +140,10 @@ class App {
     if (!t) return;
     const slot = ensureSlot(article, t.id);
     this.slots.set(t.id, slot);
+    if (!this.settings.analyzeReplies && t.state.is_reply) {
+      markSlot(slot, "filtered");
+      return;
+    }
     if (t.promoted) {
       markSlot(slot, "skipped", "promoted, not analyzed");
       return;
@@ -230,6 +238,15 @@ class App {
     if (!t) return id;
     const payload = buildJevState(t.state, extractThreadContext(article), contextModeFor(this.settings));
     return postCacheKey(id, contextHash(payload));
+  }
+
+  /**
+   * Replies and comments are left alone unless the reader turns them on: no request, no chip, no cost.
+   * Quoted posts are not replies, and an author's own thread is out of scope for this filter.
+   */
+  private filteredReply(article: Element): boolean {
+    if (this.settings.analyzeReplies) return false;
+    return isReply(article);
   }
 
   private attachArticles(article: HTMLElement): void {

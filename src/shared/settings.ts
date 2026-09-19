@@ -6,7 +6,8 @@ export const SETTINGS_KEY = "settings";
 export const STATS_KEY = "stats";
 /** v1: dwell 200 ms. v2: dwell 0, 800 px look-ahead. v3: scope all of X. v4: about_jev. v5: jevpilled, flag colors. */
 /** v6: presets, article analysis, thread context, session fields. */
-export const SETTINGS_VERSION = 6;
+/** v7: replies and comments are skipped unless the reader opts in. */
+export const SETTINGS_VERSION = 7;
 
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pricePerMtok: DEFAULT_PRICE_PER_MTOK,
   scope: "all",
   accountHandle: "",
+  analyzeReplies: false,
   dwellMs: 0,
   lookaheadPx: 800,
   concurrency: 6,
@@ -54,6 +56,7 @@ export function normalizeSettings(raw: unknown): Settings {
     pricePerMtok: finiteOr(r.pricePerMtok, DEFAULT_PRICE_PER_MTOK),
     scope: scopeRaw === "home" ? "home" : "all",
     accountHandle: typeof r.accountHandle === "string" ? r.accountHandle.replace(/^@/, "").trim() : "",
+    analyzeReplies: typeof r.analyzeReplies === "boolean" ? r.analyzeReplies : false,
     dwellMs: clamp(Number(dwellRaw), 0, 5000, DEFAULT_SETTINGS.dwellMs),
     lookaheadPx: clamp(Number(r.lookaheadPx), 0, 5000, DEFAULT_SETTINGS.lookaheadPx),
     concurrency: clamp(Number(r.concurrency), 1, 32, DEFAULT_SETTINGS.concurrency),

@@ -32,6 +32,12 @@ export interface Settings {
   scope: "home" | "all";
   /** If set, only run when the logged in account matches this handle (without @). */
   accountHandle: string;
+  /**
+   * When false (default), posts detected as replies/comments are not analyzed at all: no request, no
+   * chip, no cost, no counter. Quoted posts are not replies, so they are unaffected. Author threads
+   * are out of scope for this filter.
+   */
+  analyzeReplies: boolean;
   /** How long a post must stay in view before it is sent. 0 sends as soon as it appears. */
   dwellMs: number;
   /** Also analyze posts this many px below the viewport, so verdicts are ready before you reach them. */
