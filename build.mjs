@@ -1,18 +1,53 @@
-// Bundles the three entry points and copies static files into dist/ (or dist-e2e/ with --e2e,
-// which also lets the content script run on http://127.0.0.1 so the fixture timeline can be tested).
+// Bundles the three entry points and copies static files into a browser-specific output directory.
+// Chromium (default) → dist-chromium/. Firefox/Zen → dist-firefox/. --e2e → dist-e2e/ with
+// http://127.0.0.1 matches so the fixture timeline can be tested in Chromium.
 import * as esbuild from "esbuild";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const watch = process.argv.includes("--watch");
-const e2e = process.argv.includes("--e2e");
-const outdir = e2e ? "dist-e2e" : "dist";
+export const TARGETS = ["chromium", "firefox"];
+/** Stable Firefox identity so reloading a temporary add-on keeps settings and cache. */
+export const FIREFOX_GECKO_ID = "x-scanner@local";
+export const FIREFOX_STRICT_MIN_VERSION = "121.0";
 
-function copyStatic() {
-  const manifest = JSON.parse(readFileSync("src/manifest.json", "utf8"));
+export function parseBuildArgs(argv = process.argv.slice(2)) {
+  const watch = argv.includes("--watch");
+  const e2e = argv.includes("--e2e");
+  const eq = argv.find((a) => a.startsWith("--target="));
+  const i = argv.indexOf("--target");
+  const raw = eq ? eq.slice("--target=".length) : i !== -1 ? argv[i + 1] : "chromium";
+  if (!raw || !TARGETS.includes(raw)) {
+    throw new Error(`unknown --target ${raw ?? "(missing)"}; expected chromium or firefox`);
+  }
+  if (e2e && raw !== "chromium") throw new Error("--e2e is Chromium-only");
+  return { watch, e2e, target: raw };
+}
+
+export function outdirFor({ target, e2e }) {
+  if (e2e) return "dist-e2e";
+  return target === "firefox" ? "dist-firefox" : "dist-chromium";
+}
+
+export function manifestForTarget(source, { target, e2e }) {
+  const manifest = structuredClone(source);
   if (e2e) {
     manifest.content_scripts[0].matches.push("http://127.0.0.1/*");
     manifest.host_permissions.push("http://127.0.0.1/*");
   }
+  if (target === "firefox") {
+    // Firefox MV3 does not run background.service_worker; event pages use background.scripts.
+    manifest.background = { scripts: ["background.js"] };
+    manifest.browser_specific_settings = {
+      gecko: { id: FIREFOX_GECKO_ID, strict_min_version: FIREFOX_STRICT_MIN_VERSION },
+    };
+  }
+  return manifest;
+}
+
+function copyStatic(outdir, opts) {
+  const source = JSON.parse(readFileSync("src/manifest.json", "utf8"));
+  const manifest = manifestForTarget(source, opts);
   writeFileSync(`${outdir}/manifest.json`, JSON.stringify(manifest, null, 2));
   cpSync("src/options/options.html", `${outdir}/options.html`);
   cpSync("src/options/options.css", `${outdir}/options.css`);
@@ -20,28 +55,49 @@ function copyStatic() {
   cpSync("icons", `${outdir}/icons`, { recursive: true });
 }
 
-rmSync(outdir, { recursive: true, force: true });
-mkdirSync(outdir, { recursive: true });
+export async function buildExtension(opts) {
+  const { watch } = opts;
+  const outdir = outdirFor(opts);
+  rmSync(outdir, { recursive: true, force: true });
+  mkdirSync(outdir, { recursive: true });
 
-const ctx = await esbuild.context({
-  entryPoints: {
-    content: "src/content/index.ts",
-    background: "src/background.ts",
-    options: "src/options/options.ts",
-  },
-  bundle: true,
-  format: "iife",
-  target: "chrome120",
-  outdir,
-  sourcemap: watch ? "inline" : false,
-  logLevel: "info",
-  plugins: [{ name: "static", setup: (b) => b.onEnd(copyStatic) }],
-});
+  const ctx = await esbuild.context({
+    entryPoints: {
+      content: "src/content/index.ts",
+      background: "src/background.ts",
+      options: "src/options/options.ts",
+    },
+    bundle: true,
+    format: "iife",
+    target: "chrome120",
+    outdir,
+    sourcemap: watch ? "inline" : false,
+    logLevel: "info",
+    plugins: [{ name: "static", setup: (b) => b.onEnd(() => copyStatic(outdir, opts)) }],
+  });
 
-if (watch) {
-  await ctx.watch();
-  console.log(`watching, output in ${outdir}/`);
-} else {
+  if (watch) {
+    await ctx.watch();
+    console.log(`watching ${opts.target}, output in ${outdir}/`);
+    return;
+  }
   await ctx.rebuild();
   await ctx.dispose();
+  console.log(`built ${opts.target} → ${outdir}/`);
 }
+
+function isMain() {
+  const self = fileURLToPath(import.meta.url);
+  const invoked = process.argv[1] && path.resolve(process.argv[1]);
+  return Boolean(invoked) && pathToFileURL(path.normalize(invoked)).href === pathToFileURL(path.normalize(self)).href;
+}
+
+if (isMain()) {
+  try {
+    await buildExtension(parseBuildArgs());
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
+    process.exit(1);
+  }
+}
+

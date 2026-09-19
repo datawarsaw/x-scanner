@@ -13,8 +13,7 @@ something like 80 posts, $0.0027.
 
 ## Install
 
-Chrome 120 or newer. Until the Chrome Web Store listing is live, install from source; Node 22 or newer
-is needed to build.
+Chrome 120 or newer, or Firefox / Zen for a development build. Until a store listing is live, install from source; Node 22 or newer is needed to build.
 
 ```sh
 git clone https://github.com/oso95/x-scanner.git
@@ -23,9 +22,21 @@ npm install
 npm run build
 ```
 
-1. Open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, choose the `dist/` folder.
+1. Open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, choose the `dist-chromium/` folder.
 2. Click the x-scanner icon. Paste your TypeSafe API key, click **Test connection**, then **Save**.
 3. Open [x.com](https://x.com) and scroll: home, profiles, search, threads, lists.
+
+Firefox and Zen (development, unsigned):
+
+```sh
+npm run build:firefox
+```
+
+1. Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and choose `dist-firefox/manifest.json`. See `ZEN_TEST.md` for the full smoke-test checklist.
+2. Click the x-scanner icon. Paste your TypeSafe API key, click **Test connection**, then **Save**.
+3. Open [x.com](https://x.com) and scroll.
+
+Chromium uses a background service worker (`background.service_worker`). Firefox and Zen use an MV3 event-page background script (`background.scripts`) because Firefox does not run `background.service_worker` for this extension. Application code is shared; only the generated manifest differs. Builds land in `dist-chromium/` and `dist-firefox/`.
 
 Your key lives in this browser's extension storage and nowhere else. The only network traffic is the
 post text to `api.typesafe.ai`. No server, no analytics.
@@ -139,8 +150,12 @@ scripts/calibrate.ts    runs the defaults against the samples on the real API
 ## Development
 
 ```sh
-npm run package      # build and zip dist/ for the Chrome Web Store
-npm run watch        # rebuild dist/ on change
+npm run build            # Chromium development build → dist-chromium/
+npm run build:chromium   # same as npm run build
+npm run build:firefox    # Firefox/Zen development build → dist-firefox/
+npm run package          # build and zip dist-chromium/ for the Chrome Web Store
+npm run package:firefox  # zip dist-firefox/ for sideload/archive
+npm run watch            # rebuild dist-chromium/ on change
 npm test             # unit tests
 npm run test:e2e     # loads the built extension into Chrome for Testing (SCREENSHOT=1 also writes docs/screenshot.png)
 npm run calibrate    # real Jev calls over the sample posts (needs TYPESAFE_API_KEY in the env)
