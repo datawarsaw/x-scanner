@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>x-scanner v0.5.4 native X Article fixture</title>
+<style>
+  body { margin:0; background:#000; color:#e7e9ea; font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  [data-testid="primaryColumn"] { width: 600px; margin: 0 auto; border-left:1px solid #2f3336; border-right:1px solid #2f3336; min-height:100vh; }
+  [data-testid="cellInnerDiv"] { border-bottom: 1px solid #2f3336; }
+  article { display:flex; gap:12px; padding: 12px 16px 6px; }
+  .avatar { width:40px; height:40px; border-radius:50%; background:#3a3f44; flex:none; }
+  .col { flex:1; min-width:0; }
+  [data-testid="tweetText"] { white-space: pre-wrap; margin-top:2px; word-wrap: break-word; }
+  [data-testid="tweetText"] a { color:#1d9bf0; }
+  [data-testid="tweetPhoto"] { margin-top:10px; }
+  [data-testid="tweetPhoto"] img { width:100%; height:180px; object-fit:cover; border-radius:16px; background:#2f3336; }
+  [role="heading"] { font-weight:800; margin-top:12px; }
+  [role="heading"][aria-level="1"] { font-size:23px; line-height:1.25; }
+  [role="heading"][aria-level="2"] { font-size:17px; }
+  .col > div:not([role]):not([data-testid]) { margin-top:10px; }
+  [data-testid="card.wrapper"] { border:1px solid #2f3336; border-radius:16px; padding:12px; margin-top:10px; color:#71767b; }
+  div[role="group"] { display:flex; justify-content:space-between; max-width:420px; color:#71767b; padding:6px 0 4px; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="nav" style="position:fixed;left:16px;top:16px"><a data-testid="AppTabBar_Profile_Link" href="/demo_user" style="color:#71767b;text-decoration:none">@demo_user</a></div>
+<div data-testid="primaryColumn">
+  <section role="region" aria-label="Conversation">
+  <div data-testid="cellInnerDiv"><article data-testid="tweet" role="article" tabindex="0">
+    <div class="avatar"></div>
+    <div class="col">
+      <div data-testid="User-Name"><a href="/akshay_pachaar"><span>Akash</span></a><a href="/akshay_pachaar/status/2035341800739877091"><time datetime="2026-09-20T09:00:00Z">2h</time></a></div>
+      <div data-testid="tweetText"><span>New write-up: how the scheduler rewrite moved our p99 tail. Full article below.</span></div>
+      <div data-testid="tweetPhoto"><img src="hero.png" alt="A latency dashboard with twelve cluster panels"></div>
+      <div role="heading" aria-level="1">Why the scheduler rewrite paid off</div>
+      <div>A field report from twelve production clusters, and what it cost us to find out.</div>
+      <div>The scheduler rewrite started as a boring question: how much of our p99 tail came from the per-request lock rather than from the storage layer behind it? We instrumented 12 production clusters for six weeks before changing a single line of code, and the answer was uncomfortable.</div>
+      <div>Throughput rose 41% once the lock became a sharded queue, but only after we stopped letting the queue grow without a bound. Keeping the queue shallow and shedding load into a retry budget turned out to matter more than the sharding itself. The full write-up lives at <a href="/article.html">example.com/systems-report</a>.</div>
+      <div role="heading" aria-level="2">What broke on the way</div>
+      <div>Two regressions followed the rollout and both were our own fault. A stale shard counter made the autoscaler over-provision for 40 minutes, and a missing deadline on the drain path turned a routine deploy into a 12 minute p99 spike that nobody paged on, because the alert still watched the old metric.</div>
+      <div>The honest summary is that the queue was never the bottleneck: it was the only place we looked. A latency budget per request path, written down and enforced in review, did more for the tail than any code we shipped in this rewrite.</div>
+      <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
+    </div>
+  </article></div>
+  <div data-testid="cellInnerDiv"><article data-testid="tweet" role="article" tabindex="0">
+    <div class="avatar"></div>
+    <div class="col">
+      <div data-testid="User-Name"><a href="/bob"><span>Bob</span></a><a href="/bob/status/2035341800739877092"><time datetime="2026-09-20T09:10:00Z">1h</time></a></div>
+      <div data-testid="tweetText"><span>Direct comment with no replying row, and the storage layer is still the bottleneck: <a href="/article.html">example.com/systems-report</a></span></div>
+      <div data-testid="tweetPhoto"><img src="comment.png" alt="A screenshot of queue depth over one hour"></div>
+      <div data-testid="card.wrapper"><div data-testid="card.layoutLarge.media"><div>Systems report: scheduler latency and the storage bottleneck behind it, a card description deliberately long enough that it would read as article prose if X's link cards were not chrome.</div></div></div>
+      <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
+    </div>
+  </article></div>
+  <div data-testid="cellInnerDiv"><article data-testid="tweet" role="article" tabindex="0">
+    <div class="avatar"></div>
+    <div class="col">
+      <div data-testid="User-Name"><a href="/carol"><span>Carol</span></a><a href="/carol/status/2035341800739877093"><time datetime="2026-09-20T09:20:00Z">1h</time></a></div>
+      <div data-testid="tweetText"><span>Second direct comment, also unmarked, because X renders no replying row for these.</span></div>
+      <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
+    </div>
+  </article></div>
+  </section>
+</div>
+</body>
+</html>
+

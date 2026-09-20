@@ -126,6 +126,7 @@ test("article: user-triggered analysis fetches, bills once and then serves the c
 
   const article = server.requests.find((r) => r.kind === "article");
   assert.ok(article, "an article-shaped request reached Jev");
+  assert.equal(article!.sourceType, "external", "a fetched page carries explicit external provenance");
   // The canonical URL in the fixture HTML wins over the fetched address, which is the point of caching by canonical.
   assert.equal(article!.domain, "example.com");
   assert.match(article!.text, /Throughput rose 41%/);

@@ -3,7 +3,7 @@
 Preparation notes for a future addons.mozilla.org submission. **This is not a claim of compliance.** Nothing here has been
 reviewed by Mozilla, and the extension has not been submitted. Status below is stated as observed on the date shown.
 
-Last reviewed: 2026-09-20 against v0.5.3 of this repository.
+Last reviewed: 2026-09-20 against v0.5.4 of this repository.
 
 ## Permissions
 
@@ -12,6 +12,10 @@ Last reviewed: 2026-09-20 against v0.5.3 of this repository.
 | storage | required | holds the API key, settings, the post and article result caches, and lifetime counters |
 | https://api.typesafe.ai/* | required host | the only endpoint the extension calls to analyze text |
 | https://*/*, http://*/* | **optional** host | fetching a linked article's HTML when the reader presses Analyze article |
+
+An article X renders itself is a separate, permission-free path: pressing Analyze X article reads the long-form text out
+of the x.com page the content script is already running on. It makes no network request of its own and needs no host
+permission, so it adds nothing to the table above.
 
 Anything beyond api.typesafe.ai is optional and starts ungranted. There is no all_urls entry, and no required host permission
 outside TypeSafe. The artifact validator fails the build if a required broad host pattern ever appears in a generated manifest.
@@ -34,6 +38,9 @@ a click on an extension page, which every supported browser accepts. Revoke sits
 - https://api.typesafe.ai/v1/systemone - the analysis call. The base URL is configurable in settings.
 - Whatever origin a post links to - fetched only after an explicit Analyze article click, and only once per canonical URL.
 
+A native X Article is not fetched from anywhere. Its text is read from the DOM of the x.com page that is already open,
+only after an explicit Analyze X article click.
+
 No other host is contacted. There is no backend, no CDN, no remote configuration, and no update ping of our own.
 
 ## Data sent to TypeSafe
@@ -45,8 +52,10 @@ Per analyzed post:
 - a boolean for whether the post is a reply;
 - and, when the selected preset asks for thread context, the direct parent text and up to two preceding post texts.
 
-Per analyzed article: the extracted title, the canonical URL, the domain, the readable body text (capped, and truncated with a
-marker when it is), and the character count.
+Per analyzed article: the extracted title, the lead or standfirst when the source renders one, the canonical URL, the
+domain, the readable body text (capped, and truncated with a marker when it is), and the character count. For a native X
+Article the canonical URL is the post's own x.com address, so it carries the author's handle; no other author information
+is in the request.
 
 Never sent: author name or handle, post id, media or alt text, engagement counts, timestamps, follower data, cookies, direct
 messages, browsing history, or any identifier for the reader.
@@ -76,7 +85,7 @@ computed locally and never leave the device.
 
     npm ci
     npm run build:firefox     # dist-firefox/
-    npm run package:firefox   # x-scanner-0.5.3-firefox.zip
+    npm run package:firefox   # x-scanner-0.5.4-firefox.zip
 
 The shipped artifact contains only background.js, content.js, options.js, the two stylesheets, the settings page, icons, and a
 generated manifest.json. Sources are plain TypeScript under src/; the only build step is esbuild via build.mjs, with no

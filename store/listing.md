@@ -44,6 +44,10 @@ until you press it, and the readable text is capped, cached by canonical URL and
 post's own page the Signal and AI / Tech presets can attach the quoted post, the direct parent, or a
 couple of preceding posts, so a reply is judged against what it answers.
 
+When X renders a long-form article inside a post, an Analyze X article action appears next to it. That
+text is read straight out of the page you are already on, so it needs no extra permission and no extra
+request, and it is judged on its own under the Article preset while the post above keeps its own result.
+
 Click session in the corner panel for a local summary: posts analyzed, cache hits, what the session cost,
 average latency, flagged counts, which dimensions showed up, and the top-scoring posts and articles. It
 costs no extra API calls.
@@ -80,6 +84,9 @@ extension storage. Open source: https://github.com/oso95/x-scanner
   unrelated purposes.
 - Website content (article text), only when the user presses Analyze article on a post that links out:
   the readable body text of that page is sent to TypeSafe. Fetched without the user's cookies.
+- Website content (native X Article text), only when the user presses Analyze X article on a post whose
+  long-form article X rendered itself: that text is read from the page already on screen and sent to
+  TypeSafe. No page is fetched and no additional permission is used.
 - Authentication information (the user's TypeSafe API key): stored locally, transmitted only to
   TypeSafe as the authorization header.
 - Not collected: personally identifiable information, health, financial, location, web history, user

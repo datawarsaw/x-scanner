@@ -85,9 +85,21 @@ export interface AnalysisState extends TweetState {
   thread?: string[];
 }
 
+/** Where an analyzed article's text came from. Never inferred later: it is carried explicitly. */
+export type ArticleSource =
+  /** A page fetched from the publisher after the reader pressed Analyze article. */
+  | { type: "external"; url: string }
+  /** Long-form content X rendered itself on the post's own page, read from the DOM.
+   *  No fetch, no host permission, no X API. */
+  | { type: "x-native"; statusId: string; url: string };
+
 export interface ArticleState {
   kind: "article";
+  /** Explicit provenance, so the two article kinds can never be confused downstream. */
+  source: ArticleSource;
   title: string;
+  /** Lead or standfirst line, when the source renders one. */
+  subtitle?: string;
   url: string;
   domain: string;
   text: string;
@@ -153,6 +165,8 @@ export interface AnalysisResult {
   at: number;
   questionsHash: string;
   kind?: "post" | "article";
+  /** For articles: which of the two sources this result came from. Kept in the cache with it. */
+  source?: ArticleSource;
   url?: string;
   title?: string;
   truncated?: boolean;

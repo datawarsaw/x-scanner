@@ -1,5 +1,5 @@
 // Content script entry. Wires the watcher, scheduler, cache, HUD and renderer together.
-import type { AnalysisResult, AnalyzeReply, Settings, TweetState } from "../shared/types.ts";
+import type { AnalysisResult, AnalyzeReply, ArticleState, Settings, TweetState } from "../shared/types.ts";
 import { loadSettings, onSettingsChange } from "../shared/settings.ts";
 import { buildQuestions, questionsHash } from "../shared/questions.ts";
 import { extractTweet, isReply, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
@@ -9,15 +9,16 @@ import { Scheduler } from "./queue.ts";
 import { ResultStore } from "./store.ts";
 import { SessionStats } from "./stats.ts";
 import { Hud } from "./hud.ts";
-import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot, ensureArticleAction, fillArticleResult } from "./render.ts";
+import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot, ensureArticleAction, fillArticleResult, type ArticleAction } from "./render.ts";
 import { verdicts } from "./labels.ts";
 import { ArticleStore } from "./article-store.ts";
 import { renderSessionPanel } from "./session-panel.ts";
 import { activeDimensions, contextModeFor, PRESET_BY_ID } from "../shared/presets.ts";
 import { buildJevState, contextHash, postCacheKey } from "../shared/context.ts";
-import { extractReadable } from "../shared/article.ts";
+import { extractReadable, hostOf } from "../shared/article.ts";
 import { isHighSignal, signalScore } from "../shared/score.ts";
 import type { FetchArticleReply } from "../shared/types.ts";
+import { extractNativeArticle, type NativeArticleExtract } from "./x-article.ts";
 
 const SETTINGS_LINK = `<a class="xs-link">settings</a>`;
 
@@ -29,6 +30,7 @@ class App {
   private articles: ArticleStore;
   private stats = new SessionStats();
   private slots = new Map<string, HTMLElement>();
+  private nativeCaught = new WeakMap<HTMLElement, NativeArticleExtract>();
   private routeTimer: number | null = null;
   private tickTimer: number | null = null;
   private active = false;
@@ -138,6 +140,9 @@ class App {
     if (!t) return;
     const slot = ensureSlot(article, t.id);
     this.slots.set(t.id, slot);
+    // Attach before the post filters, so a native X Article keeps its manual action even when the
+    // post itself is filtered, promoted, or has no text of its own to judge.
+    this.attachArticles(article);
     if (!this.filterInto(slot, t.id, t.state.is_reply)) return;
     if (t.promoted) {
       markSlot(slot, "skipped", "promoted, not analyzed");
@@ -147,7 +152,6 @@ class App {
       markSlot(slot, "skipped", "no text to analyze");
       return;
     }
-    this.attachArticles(article);
     const key = this.cacheKey(article, t.id);
     const cached = this.store.get(key);
     if (cached) {
@@ -262,11 +266,47 @@ class App {
 
   private attachArticles(article: HTMLElement): void {
     if (!this.settings.articleAnalysisEnabled) return;
-    const urls = articleHrefs(article, location.href);
-    ensureArticleAction(article, urls, (url) => void this.analyzeArticle(article, url));
+    const actions: ArticleAction[] = [];
+    const native = this.nativeArticle(article);
+    if (native) actions.push({ kind: "x-native", key: native.cacheKey, url: native.url });
+    for (const url of articleHrefs(article, location.href).slice(0, 2)) {
+      actions.push({ kind: "external", key: url, url });
+    }
+    ensureArticleAction(article, actions, (action) => void this.runArticle(article, action));
   }
 
-  private async analyzeArticle(article: HTMLElement, url: string): Promise<void> {
+  /**
+   * The native X Article on this post, or null. A positive is memoized per element so repeated
+   * mounts cost nothing; a negative is re-checked, because X hydrates a post after mounting it.
+   * Either way the slot carries the answer, which is what the page console reads.
+   */
+  private nativeArticle(article: HTMLElement): NativeArticleExtract | null {
+    const known = this.nativeCaught.get(article);
+    if (known) return known;
+    const found = extractNativeArticle(article, location.href, this.settings.maxArticleChars);
+    if (found) this.nativeCaught.set(article, found);
+    const slot = getSlot(article);
+    if (slot) {
+      if (found) {
+        slot.dataset.xsNativeArticle = "true";
+        slot.dataset.xsNativeArticleEvidence = found.evidence;
+      } else {
+        delete slot.dataset.xsNativeArticle;
+        delete slot.dataset.xsNativeArticleEvidence;
+      }
+    }
+    return found;
+  }
+
+  private async runArticle(article: HTMLElement, action: ArticleAction): Promise<void> {
+    if (action.kind === "x-native") {
+      await this.analyzeNativeArticle(article);
+      return;
+    }
+    await this.analyzeExternalArticle(article, action.key);
+  }
+
+  private async analyzeExternalArticle(article: HTMLElement, url: string): Promise<void> {
     const cached = this.articles.get(url);
     if (cached) {
       this.showArticle(article, cached);
@@ -284,19 +324,60 @@ class App {
       fillArticleResult(article, "no readable text");
       return;
     }
+    const result = await this.submitArticle(article, extracted.url, {
+      kind: "article",
+      source: { type: "external", url: extracted.url },
+      title: extracted.title,
+      url: extracted.url,
+      domain: extracted.domain,
+      text: extracted.text,
+      truncated: extracted.truncated,
+    });
+    // The address the reader actually followed stays mapped to the same result, so a re-click is free.
+    if (result && extracted.url !== url) this.articles.set(url, result);
+  }
+
+  /** A native X Article is read from this page's DOM: no fetch, no host permission, no X API. */
+  private async analyzeNativeArticle(article: HTMLElement): Promise<void> {
+    const native = this.nativeArticle(article);
+    if (!native) {
+      fillArticleResult(article, "no article text");
+      return;
+    }
+    const cached = this.articles.get(native.cacheKey);
+    if (cached) {
+      this.showArticle(article, cached);
+      this.stats.recordArticleCacheHit();
+      return;
+    }
+    fillArticleResult(article, "reading article…");
+    await this.submitArticle(article, native.cacheKey, {
+      kind: "article",
+      source: { type: "x-native", statusId: native.statusId, url: native.url },
+      title: native.title,
+      subtitle: native.subtitle,
+      url: native.url,
+      domain: hostOf(native.url),
+      text: native.text,
+      truncated: native.truncated,
+    });
+  }
+
+  /** The one place an article is billed, cached, counted and rendered, for both article kinds. */
+  private async submitArticle(article: HTMLElement, cacheKey: string, state: ArticleState): Promise<AnalysisResult | null> {
     const reply = (await chrome.runtime.sendMessage({
       type: "analyzeArticle",
-      article: { kind: "article", title: extracted.title, url: extracted.url, domain: extracted.domain, text: extracted.text, truncated: extracted.truncated },
+      article: state,
     })) as AnalyzeReply;
     if (!reply?.ok) {
       fillArticleResult(article, reply?.error ?? "analysis failed");
-      return;
+      return null;
     }
     const dims = PRESET_BY_ID.article.dimensions;
     const vs = verdicts(dims, reply.answers);
     const score = signalScore("article", dims, reply.answers);
     const result: AnalysisResult = {
-      tweetId: extracted.url,
+      tweetId: cacheKey,
       model: reply.model,
       answers: reply.answers,
       inputTokens: reply.usage.input_tokens,
@@ -306,13 +387,13 @@ class App {
       at: Date.now(),
       questionsHash: questionsHash(dims, this.settings.model),
       kind: "article",
-      url: extracted.url,
-      title: extracted.title,
-      truncated: extracted.truncated,
+      source: state.source,
+      url: state.url,
+      title: state.title,
+      truncated: state.truncated,
       signalScore: score,
     };
-    this.articles.set(extracted.url, result);
-    if (extracted.url !== url) this.articles.set(url, result);
+    this.articles.set(cacheKey, result);
     this.stats.recordAnalysis({
       costUsd: result.costUsd,
       inputTokens: result.inputTokens,
@@ -321,11 +402,12 @@ class App {
       flagged: vs.some((v) => v.show),
       hits: vs.filter((v) => v.show).map((v) => v.id),
       score,
-      id: extracted.url,
+      id: cacheKey,
       kind: "article",
-      title: extracted.title,
+      title: state.title,
     });
     this.showArticle(article, result);
+    return result;
   }
 
   private showArticle(article: HTMLElement, r: AnalysisResult): void {
@@ -333,7 +415,9 @@ class App {
     const hits = vs.filter((v) => v.show).map((v) => v.label);
     const head = hits.length ? hits.slice(0, 3).join(" · ") : "clean";
     const trunc = r.truncated ? " · truncated" : "";
-    fillArticleResult(article, `${head} · ${r.inputTokens} tok · $${r.costUsd.toFixed(6)}${trunc}`, r.title);
+    // A native X Article and a linked one can sit under the same post, so the card names its source.
+    const label = r.source?.type === "x-native" ? "X ARTICLE" : "ARTICLE";
+    fillArticleResult(article, `${head} · ${r.inputTokens} tok · $${r.costUsd.toFixed(6)}${trunc}`, r.title, label);
   }
 
   private toggleSession(): void {

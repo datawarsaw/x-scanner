@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>x-scanner native X Article detection cases (unit fixture)</title>
+</head>
+<body>
+<!-- Every case is one post. The route id each case is asked about is in its own permalink; the test
+     passes the page URL explicitly, so nothing here depends on the document's own location. -->
+
+<!-- Detected by heading + body. The post keeps its own text, the hero image is chrome, and the quoted
+     post inside holds a long paragraph that must never be read as article prose. -->
+<article data-testid="tweet" id="native" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="/alice"><span>Alice</span></a><a href="/alice/status/9001"><time datetime="2026-09-20T09:00:00Z">1h</time></a></div>
+  <div data-testid="tweetText"><span>Short post lead that the post preset judges.</span></div>
+  <div data-testid="tweetPhoto"><img src="hero.png" alt="A latency dashboard"></div>
+  <h1>Why the scheduler rewrite paid off</h1>
+  <p>A field report from twelve production clusters, and what it cost us to find out.</p>
+  <p>[[P1]]</p>
+  <p>[[P2]]</p>
+  <div role="link" tabindex="0">
+    <div data-testid="User-Name"><a href="/paul/status/9400"><time datetime="2026-09-19T10:00:00Z">Sep 19</time></a></div>
+    <div data-testid="tweetText"><span>Quoted wisdom here, which is not a reply and must still be analyzed.</span></div>
+    <p>[[Q1]]</p>
+  </div>
+  <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
+</article>
+
+<!-- Detected by heading + body through the aria heading role, with ragged whitespace in the body. -->
+<article data-testid="tweet" id="aria" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="/dave"><span>Dave</span></a><a href="/dave/status/9004"><time datetime="2026-09-20T09:00:00Z">1h</time></a></div>
+  <div role="heading" aria-level="1">A field guide to sharded queues</div>
+  <div>
+      Leading    whitespace   and   a
+      hard wrap that must collapse to single spaces, plus enough extra words here to push this
+      paragraph comfortably past the length a short lead-in line would have.
+  </div>
+  <div>[[P3]]</div>
+  <div role="group" aria-label="actions"><button>reply</button></div>
+</article>
+
+<!-- Detected by X's own article container name, with no heading of any kind. -->
+<article data-testid="tweet" id="container" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="/dave"><span>Dave</span></a><a href="/dave/status/9005"><time datetime="2026-09-20T09:00:00Z">1h</time></a></div>
+  <div data-testid="twitterArticleReadView">
+    <div>[[T1]]</div>
+    <div>[[P1]]</div>
+    <div>[[P2]]</div>
+  </div>
+  <div role="group" aria-label="actions"><button>reply</button></div>
+</article>
+
+<!-- Detected as an untitled long form: no post text, no heading, four long paragraphs. -->
+<article data-testid="tweet" id="untitled" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="/erin"><span>Erin</span></a><a href="/erin/status/9006"><time datetime="2026-09-20T09:00:00Z">1h</time></a></div>
+  <div>[[P1]]</div>
+  <div>[[P2]]</div>
+  <div>[[P3]]</div>
+  <div>[[P4]]</div>
+  <div>[[P5]]</div>
+  <div role="group" aria-label="actions"><button>reply</button></div>
+</article>
+
+<!-- An ordinary post with a large image and a long link card is not an article. -->
+<article data-testid="tweet" id="card" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="/bob"><span>Bob</span></a><a href="/bob/status/9002"><time datetime="2026-09-20T09:00:00Z">1h</time></a></div>
+  <div data-testid="tweetText"><span>Ordinary post with a big image and a link card.</span></div>
+  <div data-testid="tweetPhoto"><img src="big.png" alt="A very large image"></div>
+  <div data-testid="card.wrapper"><div data-testid="card.layoutLarge.media"><div>[[Q1]]</div></div></div>
+  <div role="group" aria-label="actions"><button>reply</button></div>
+</article>
+
+<!-- An ordinary long post is a post, not an article, even at article length. -->
+<article data-testid="tweet" id="longpost" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="/carol"><span>Carol</span></a><a href="/carol/status/9003"><time datetime="2026-09-20T09:00:00Z">1h</time></a></div>
+  <div data-testid="tweetText"><span>[[P1]]<br><br>[[P2]]<br><br>[[P3]]<br><br>[[P4]]</span></div>
+  <div role="group" aria-label="actions"><button>reply</button></div>
+</article>
+
+<!-- A short label is not an article heading. -->
+<article data-testid="tweet" id="shortlabel" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="/frank"><span>Frank</span></a><a href="/frank/status/9007"><time datetime="2026-09-20T09:00:00Z">1h</time></a></div>
+  <div data-testid="tweetText"><span>Short post text with a label above two long paragraphs.</span></div>
+  <h3>TIL</h3>
+  <p>[[P1]]</p>
+  <p>[[P2]]</p>
+  <div role="group" aria-label="actions"><button>reply</button></div>
+</article>
+
+<!-- Long prose inside a quoted post cannot make the quoting post an article. -->
+<article data-testid="tweet" id="quoteprobe" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="/gina"><span>Gina</span></a><a href="/gina/status/9008"><time datetime="2026-09-20T09:00:00Z">1h</time></a></div>
+  <div data-testid="tweetText"><span>Worth reading.</span></div>
+  <h1>Look at this</h1>
+  <div role="link" tabindex="0">
+    <div data-testid="User-Name"><a href="/hank/status/9500"><time datetime="2026-09-19T10:00:00Z">Sep 19</time></a></div>
+    <div data-testid="tweetText"><span>Their post, quoted.</span></div>
+    <p>[[Q1]]</p>
+    <p>[[Q2]]</p>
+  </div>
+  <div role="group" aria-label="actions"><button>reply</button></div>
+</article>
+</body>
+</html>

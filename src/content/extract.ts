@@ -24,16 +24,21 @@ export function extractTweet(article: Element): ExtractedTweet | null {
   return { id, state, promoted: isPromoted(article) };
 }
 
-export function tweetId(article: Element): string | null {
+/** The post's own permalink href: the anchor wrapping <time>, ignoring any nested quoted post. */
+export function statusHref(article: Element): string | null {
   const links = Array.from(article.querySelectorAll<HTMLAnchorElement>(SEL.statusLink)).filter((a) => !insideQuote(a, article));
   const withTime = links.find((a) => a.querySelector("time"));
   const pick = withTime ?? links[0];
-  if (!pick) return null;
-  const m = /\/status\/(\d+)/.exec(pick.getAttribute("href") ?? "");
+  return pick?.getAttribute("href") ?? null;
+}
+
+export function tweetId(article: Element): string | null {
+  const m = /\/status\/(\d+)/.exec(statusHref(article) ?? "");
   return m?.[1] ?? null;
 }
 
-function insideQuote(el: Element, article: Element): boolean {
+/** True when `el` sits inside a quoted post nested in `article`. */
+export function insideQuote(el: Element, article: Element): boolean {
   let p = el.parentElement;
   while (p && p !== article) {
     if (p.matches(SEL.quoteContainer)) return true;

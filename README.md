@@ -15,8 +15,9 @@ something like 80 posts, $0.0027.
 
 - **Analysis presets.** Default (the original six questions), Signal, AI / Tech, and Article. Results are cached per
   preset, so switching never reuses one preset's answers for another.
-- **Article analysis.** When a post links out, x-scanner offers an *Analyze article* action. Nothing is fetched or
-  billed until you click it, and the result is cached by canonical URL.
+- **Article analysis.** When a post links out, x-scanner offers an *Analyze article* action, and when X renders a
+  long-form article inside a post it offers *Analyze X article* next to it. Nothing is fetched or billed until you
+  click, the long-form body is read out of the page already on screen, and each result is cached on its own.
 - **Thread context.** On a post's own page, the Signal and AI / Tech presets can attach the quoted post, the direct
   parent, or a couple of preceding posts, so a reply can be judged with what it answers.
 - **Session panel.** Click *session* in the HUD for posts analyzed, cache hits, cost, average latency, flagged counts,
@@ -97,7 +98,7 @@ question's wording, its levels, or the model, and the result cache is dropped.
 | Default | the six dimensions above; user editable | quoted post only |
 | Signal | density, actionability, originality, evidence, promo, bait | quoted post + direct parent |
 | AI / Tech | technical depth, benchmark support, novelty, speculation, implementation use, hype | quoted post + a couple of preceding posts |
-| Article | density, evidence, sourcing, originality, depth, promo, speculation, action | used for linked pages |
+| Article | density, evidence, sourcing, originality, depth, promo, speculation, action | linked pages and native X Articles |
 
 The three non-Default presets are read-only in v0.5; their thresholds are first-pass defaults for this release
 rather than values calibrated against a labelled set. The Default preset keeps v0.1's questions and thresholds
@@ -123,8 +124,9 @@ Measured on 2026-09-18 with `jev-1.13.0` over the 18 sample posts in `test/fixtu
 - **Only when logged in as**: a handle, for people who switch accounts and want it on one.
 - **Analyze replies/comments**: off by default. While it is off, posts X marks as replies are never sent to Jev, so they add no cost and show no chip. On an individual `/<handle>/status/<id>` page the route decides instead: only the post whose own status ID matches the URL is analyzed, and the other top-level articles there, direct comments and recommendations alike, are filtered, because X does not always render a `Replying to` row for them. Text quoted inside a post is not a reply and is always included.
 - **Analysis preset** and **thread context**: which typed questions run, and how much of a thread is attached.
-- **Articles**: whether the *Analyze article* action appears, the character cap sent to Jev, the article cache size,
-  and a one-time **Grant article access** control.
+- **Articles**: whether the *Analyze article* and *Analyze X article* actions appear, the character cap sent to Jev,
+  the article cache size, and a one-time **Grant article access** control for linked pages. The native X Article
+  action needs no permission: it reads the page X already rendered.
 - **Dimensions**: add, remove, disable, rename, switch between Noul and Score, edit the question, levels
   and criteria, set the threshold, whether the flag fires above or below it, and the flag color.
 - **Advanced**: model (pinned to `jev-1.13.0` so thresholds keep their meaning), price, base URL,
@@ -153,8 +155,9 @@ CJK is handled but not equally well. The post text goes in as written, in whatev
 - Results are cached by post id in extension storage. Scrolling back, reloading, or returning the next
   day re-bills nothing.
 - Promoted posts and posts with no text are never sent.
-- Article text is fetched only when you press *Analyze article*, is reduced to the readable body, capped at the
-  configured character limit, and cached under its canonical URL.
+- Linked article text is fetched only when you press *Analyze article*, is reduced to the readable body, capped at
+  the configured character limit, and cached under its canonical URL. A native X Article is read from the DOM in
+  front of you when you press *Analyze X article*: no fetch, no permission, its own cache entry.
 
 ```
 src/
@@ -172,6 +175,7 @@ src/
     selectors.ts        every X DOM selector, in one place
     observe.ts          MutationObserver + IntersectionObserver, look-ahead and optional wait
     extract.ts          id, text, quote, reply and promoted detection
+    x-article.ts        native X Article detection and extraction, layered and conservative
     queue.ts            concurrency-capped FIFO with cancel
     cache.ts, store.ts  LRU and its persistence
     article-store.ts    article LRU, keyed by canonical URL
@@ -210,6 +214,8 @@ right flags appear, that promoted and empty posts are never sent, that the panel
 usage times price, that node recycling does not double-bill, that scrolling back and reloading send
 nothing new, that scope and account filters pause the extension, and that the settings page round
 trips, and that on an individual status page only the focal post is judged while replies are off.
+It also checks that a native X Article is offered only on the post that carries it, that the article is
+billed exactly once, and that reloading serves it from cache.
 It needs a Chromium or Chrome for Testing binary (`npx playwright-core install chromium`, or
 set `CHROME_PATH`). Branded Google Chrome no longer accepts `--load-extension`.
 
@@ -218,6 +224,7 @@ set `CHROME_PATH`). Branded Google Chrome no longer accepts `--load-extension`.
 - Jev reads literally. A post written to argue for its own classification can move an answer, which is
   why thresholds default high.
 - Article extraction is a small readable-text pass, not a reader-mode engine. Pages that render entirely in client-side JavaScript, or that hide the body behind a paywall or a consent wall, yield little or no text, and the card says so rather than sending page chrome.
+- Native X Article detection matches semantics - the route's status ID, heading roles, prose blocks and X's own container names - never X's generated class names or a position on screen. It is built to miss rather than to guess, so a reader markup it does not recognise leaves the action hidden; the slot then reports what it decided in `data-xs-native-article`, and ZEN_TEST.md records how to read that on a live page.
 - Thread context is read from the DOM of the page you are on, and only on a post's own URL. A home-timeline neighbour is never treated as a parent.
 - Session ranking uses a fixed weighted sum over each preset's typed answers. It is a local sort key, not a judgement about the post's value.
 - On an individual status page with Analyze replies/comments off, only the focal post is analyzed: the post whose own status ID matches the URL. The other top-level articles on that conversation page, possible recommendations included, are filtered deliberately, and X not always rendering a `Replying to` row for direct comments is why the route rather than the markup decides there.

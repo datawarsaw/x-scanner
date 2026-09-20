@@ -34,13 +34,13 @@ running instance has the new code, and About:debugging will happily show the old
 continue into reply testing until these three values are right.
 
 1. Open x-scanner settings and scroll to the About section.
-2. Confirm it reads Version: 0.5.3
+2. Confirm it reads Version: 0.5.4
 3. Confirm Build: shows the short sha of the commit you built (the build prints it, for example "build fad243e"). If
    it reads unknown, the artifact was built outside a git checkout.
 4. Confirm Browser target: Firefox
 5. Confirm Analyze replies/comments is unchecked and its Current value line says OFF.
 6. If any of these disagree, remove and re-add the temporary add-on from dist-firefox/manifest.json, then check again.
-7. The HUD in the corner repeats the same identity quietly as v0.5.3 · <sha>, so you can confirm it on x.com itself
+7. The HUD in the corner repeats the same identity quietly as v0.5.4 · <sha>, so you can confirm it on x.com itself
    without opening about:debugging.
 
 ## 3. Settings
@@ -66,7 +66,8 @@ Switching presets re-asks posts, because the cache is keyed by preset. That is e
 
 ## 5. Articles
 
-Article access is a separate, optional permission, so this is the one step that asks for something at runtime.
+Article access is a separate, optional permission, so this is the one step that asks for something at runtime. This
+section is the linked-page path; articles X renders itself are section 6.
 
 1. In settings, under Articles, click Grant article access and accept the prompt. The status line should read granted.
 2. On x.com, find a post that links to an external article. A subtle "Analyze article" button should sit under the post.
@@ -80,7 +81,52 @@ Article access is a separate, optional permission, so this is the one step that 
    sending page chrome.
 8. Click Revoke in settings and confirm a fresh article reports that article access is needed.
 
-## 6. Thread context
+## 6. Native X Articles
+
+Long-form articles that X renders itself on a post's own page. Unlike section 5 this asks for no permission and makes
+no network request: the text is read out of the page x-scanner is already running on. The action is manual, exactly
+like the linked-article one, and it uses the same Article preset, article cache, cost accounting and session counters.
+
+1. Open a post that X renders as a long-form article, for example
+   `https://x.com/akshay_pachaar/status/2035341800739877091`
+2. Confirm an *Analyze X article* button sits under the post, alongside any *Analyze article* buttons for links in
+   the body.
+3. Confirm nothing happens on its own: no request in the network inspector, and the HUD cost figure does not move,
+   until you click.
+4. Click *Analyze X article*. The card should read X ARTICLE with the flagged dimensions, the token count, the cost,
+   and a truncated marker when the body was longer than the character cap.
+5. Confirm the analyzed text is the long-form body and not the post's own text. The post keeps its own chip from the
+   selected post preset; the article is judged separately under the Article preset (density, evidence, sourcing,
+   originality, depth, promo, speculation, action).
+6. Confirm the HUD's analyzed count grew by one and that the session panel's articles count grew by one, not its post
+   count.
+7. Click it again, then reload the page and click it again. Neither should reach Jev.
+8. Confirm the comments under the article still show no chip and add nothing to the cost while Analyze
+   replies/comments is OFF.
+
+### 6.1 Record the live reader DOM markers
+
+Detection is deliberately conservative - a miss is preferred to a wrong answer - so record what the live page really
+renders. That is what a later version would be hardened against, and it is a finding to report rather than something
+to work around on the page.
+
+1. In the page console, read what x-scanner decided for the focal post:
+
+       [...document.querySelectorAll("article[data-testid='tweet']")].map(a => { const s = a.querySelector(".xs-slot"); return [s?.dataset.tweetId, s?.dataset.xsNativeArticle, s?.dataset.xsNativeArticleEvidence] })
+
+   The focal post must show its own status ID and data-xs-native-article="true". The evidence value names the layer
+   that matched: "heading+body", "container:<data-testid>", or "longform". A null or a missing attribute means
+   nothing matched and the button will not be offered.
+
+2. Record the reader's own structure, so the markers can be compared with what detection expects:
+
+       (() => { const a = document.querySelector("article[data-testid='tweet']"); return { testids: [...new Set([...a.querySelectorAll("[data-testid]")].map(e => e.getAttribute("data-testid")))], headings: [...a.querySelectorAll("h1,h2,h3,[role='heading']")].map(h => (h.textContent || "").slice(0, 60)) }; })()
+
+3. Note both results with VERIFIED or FAILED, and whether the text analyzed in step 5 above was the article body, the
+   post's own text, or nothing. The automated tests run against the fixture, so this step is the only evidence about
+   the live page.
+
+## 7. Thread context
 
 Thread context only applies to posts that are analyzed, and replies are off by default. Turn on Analyze
 replies/comments in settings before running this section, and make sure the parent post is rendered on
@@ -94,7 +140,7 @@ the same page.
    the payload changed.
 5. Switch to AI / Tech on a technical thread and confirm a couple of preceding posts are attached.
 
-## 7. Session panel
+## 8. Session panel
 
 1. Click session in the HUD.
 2. Confirm posts analyzed, cached, spent, average latency, flagged and articles are consistent with what you just did.
@@ -102,14 +148,14 @@ the same page.
 4. Confirm opening the panel did not produce any extra Jev call in the network inspector.
 5. Click session again to close it.
 
-## 8. Real x.com, basic behaviour (v0.1 regression)
+## 9. Real x.com, basic behaviour (v0.1 regression)
 
 Scroll a logged-in x.com home timeline, then a profile, a thread, and search, with Analyze replies/comments
 left off. Confirm:
 
 - replies and comments show no chip at all, and add nothing to the analyzed count or the cost figure
 - the post whose own /status/ URL you opened is analyzed, and so is a post that quotes another post. On a conversation
-  page every other top-level article is filtered while replies are off, which is section 9's check
+  page every other top-level article is filtered while replies are off, which is section 10's check
 - the HUD appears and posts receive slots
 - judgments arrive, ordinary posts render clean or flagged
 - promoted posts are skipped, text-less posts are skipped
@@ -121,13 +167,13 @@ left off. Confirm:
 - the settings link and the detail card work
 - no obvious console errors, in the page or the extension inspector
 
-## 9. Replies and comments
+## 10. Replies and comments
 
 Analyze replies/comments is off by default. This is the check that the filter is real and reversible.
 
 Do step 2.1 first, with these three values on screen before anything below means anything:
 
-    Version: 0.5.3
+    Version: 0.5.4
     Build: <the sha printed by the build you loaded>
     Analyze replies/comments: OFF
 
@@ -159,24 +205,24 @@ is out of scope for main-posts-only mode. On home, profiles, search and lists th
    to" row must still be skipped and show no chip, and an ordinary post must still be analyzed. The focal-post rule
    applies to individual /status/ pages only.
 
-## 10. Real Jev / TypeSafe
+## 11. Real Jev / TypeSafe
 
 Confirm TypeSafe connection succeeds, real requests reach Jev, the response model is shown, token usage is returned, and the
 HUD cost changes. In the network inspector, confirm the only external destinations are api.typesafe.ai and the article
 origins you explicitly asked to analyze.
 
-## 11. Firefox / Zen lifecycle
+## 12. Firefox / Zen lifecycle
 
 1. Analyze several posts.
 2. Leave the browser idle long enough for the background event page to become inactive if Zen suspends it.
 3. Resume scrolling on x.com.
 4. Verify new analyses still work after the background wakes.
 
-## 12. Cache
+## 13. Cache
 
 1. Analyze visible posts, then scroll far away and back. Cached judgments should reappear with no new calls.
 2. Reload x.com. The first screen should still come from cache.
-3. Repeat for an article.
+3. Repeat for a linked article, and for a native X Article.
 
 Do not claim browser-restart persistence unless you tested a non-temporary installation. Temporary add-ons are removed when
 Zen exits.

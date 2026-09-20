@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   FIREFOX_GECKO_ID,
   FIREFOX_STRICT_MIN_VERSION,
@@ -7,6 +9,15 @@ import {
   outdirFor,
   parseBuildArgs,
 } from "../../build.mjs";
+
+const shipped = JSON.parse(readFileSync(path.join(import.meta.dirname, "../../src/manifest.json"), "utf8")) as {
+  version: string;
+  permissions: string[];
+  host_permissions: string[];
+  optional_host_permissions: string[];
+  content_scripts: { matches: string[]; js: string[]; css: string[] }[];
+  background: { service_worker?: string; scripts?: string[] };
+};
 
 const source = {
   manifest_version: 3,
@@ -72,4 +83,21 @@ test("article hosts stay optional in both targets", () => {
     assert.equal(m.host_permissions.includes("<all_urls>"), false);
     assert.deepEqual(m.host_permissions, ["https://api.typesafe.ai/*"]);
   }
+});
+
+// The shipped manifest itself, not just the generator: native X Article reading must not have added
+// a permission. It runs on the x.com content script's existing DOM access, so this list stays short.
+test("the shipped manifest asks for storage, TypeSafe, and optional article hosts only", () => {
+  assert.deepEqual(shipped.permissions, ["storage"]);
+  assert.deepEqual(shipped.host_permissions, ["https://api.typesafe.ai/*"]);
+  assert.deepEqual(shipped.optional_host_permissions, ["https://*/*", "http://*/*"]);
+  assert.deepEqual(shipped.content_scripts[0]!.matches, ["https://x.com/*", "https://twitter.com/*"]);
+  assert.deepEqual(shipped.content_scripts[0]!.js, ["content.js"]);
+  assert.deepEqual(shipped.content_scripts[0]!.css, ["content.css"]);
+  assert.equal(shipped.background.service_worker, "background.js");
+});
+
+test("the shipped manifest version tracks package.json", () => {
+  const pkg = JSON.parse(readFileSync(path.join(import.meta.dirname, "../../package.json"), "utf8")) as { version: string };
+  assert.equal(shipped.version, pkg.version);
 });

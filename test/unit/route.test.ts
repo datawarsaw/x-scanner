@@ -3,13 +3,25 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { routeStatusId, shouldAnalyzePost } from "../../src/content/route.ts";
+import { routeHandle, routeStatusId, shouldAnalyzePost } from "../../src/content/route.ts";
 
 test("a handle-qualified status route yields its status id", () => {
   assert.equal(routeStatusId("/dave/status/8302"), "8302");
   assert.equal(routeStatusId("/i/status/8302"), "8302");
   assert.equal(routeStatusId("/demo_user/status/2101503264147845514"), "2101503264147845514");
   assert.equal(routeStatusId("/dave/status/8302/photo/1"), "8302");
+});
+
+// The native X Article reader builds its canonical URL from this handle, so it has to agree with
+// routeStatusId about which routes are individual status pages at all.
+test("the same routes also yield the handle segment", () => {
+  assert.equal(routeHandle("/dave/status/8302"), "dave");
+  assert.equal(routeHandle("/i/status/8302"), "i", "the handle-less form X uses when it cannot name the author");
+  assert.equal(routeHandle("/demo_user/status/2101503264147845514"), "demo_user");
+  assert.equal(routeHandle("/dave/status/8302/photo/1"), "dave");
+  for (const path of ["/", "/home", "/dave", "/search", "/settings", "/status/8302", "/dave/status"]) {
+    assert.equal(routeHandle(path), null, path);
+  }
 });
 
 test("timelines, profiles, search, lists and settings are not status routes", () => {

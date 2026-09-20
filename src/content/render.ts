@@ -173,9 +173,28 @@ function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): voi
   openDetail = card;
 }
 
-export function ensureArticleAction(article: Element, urls: string[], onAnalyze: (url: string) => void): void {
+/** One manual article action. Nothing is fetched or billed until the reader clicks one of these. */
+export interface ArticleAction {
+  /** "x-native" is the long-form article X itself rendered on this page; "external" is a linked page. */
+  kind: "external" | "x-native";
+  /** Identity handed back on click: the URL for external, the native cache key for x-native. */
+  key: string;
+  /** Tooltip, and the data-url the tests and the page console read. */
+  url: string;
+}
+
+const ARTICLE_LABEL: Record<ArticleAction["kind"], string> = {
+  external: "Analyze article",
+  "x-native": "Analyze X article",
+};
+
+/**
+ * Render the manual article actions under one post. Idempotent: the row is rebuilt from the actions
+ * the caller passes, and removed when there are none.
+ */
+export function ensureArticleAction(article: Element, actions: ArticleAction[], onAnalyze: (action: ArticleAction) => void): void {
   let row = article.querySelector<HTMLElement>(":scope .xs-article-row");
-  if (!urls.length) {
+  if (!actions.length) {
     row?.remove();
     return;
   }
@@ -187,23 +206,25 @@ export function ensureArticleAction(article: Element, urls: string[], onAnalyze:
     else article.appendChild(row);
   }
   row.textContent = "";
-  for (const url of urls.slice(0, 2)) {
+  for (const action of actions) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "xs-article-btn";
-    btn.dataset.url = url;
-    btn.textContent = "Analyze article";
-    btn.title = url;
+    btn.className = action.kind === "x-native" ? "xs-article-btn xs-article-native" : "xs-article-btn";
+    btn.dataset.key = action.key;
+    btn.dataset.url = action.url;
+    if (action.kind === "x-native") btn.dataset.xsNative = "true";
+    btn.textContent = ARTICLE_LABEL[action.kind];
+    btn.title = action.url;
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      onAnalyze(url);
+      onAnalyze(action);
     });
     row.appendChild(btn);
   }
 }
 
-export function fillArticleResult(article: Element, summary: string, title?: string): void {
+export function fillArticleResult(article: Element, summary: string, title?: string, label = "ARTICLE"): void {
   let card = article.querySelector<HTMLElement>(":scope .xs-article-card");
   if (!card) {
     card = document.createElement("div");
@@ -215,7 +236,7 @@ export function fillArticleResult(article: Element, summary: string, title?: str
   card.textContent = "";
   const k = document.createElement("div");
   k.className = "xs-article-k";
-  k.textContent = "ARTICLE";
+  k.textContent = label;
   const v = document.createElement("div");
   v.className = "xs-article-v";
   v.textContent = summary;

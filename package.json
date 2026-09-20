@@ -1,6 +1,6 @@
 {
   "name": "x-scanner",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "private": true,
   "description": "Chrome extension that labels every post you scroll past on X using TypeSafe's Jev, with a live cost counter in the corner.",
   "type": "module",

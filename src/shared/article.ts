@@ -28,9 +28,17 @@ export function extractReadable(html: string, fetchedUrl: string, maxChars: numb
   }
   let text = chunks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
   if (!text) text = (doc.body?.textContent ?? "").replace(/\s+/g, " ").trim();
-  const truncated = text.length > maxChars;
-  if (truncated) text = trimTo(text, maxChars);
-  return { title: title.slice(0, 300), url, domain: hostOf(url), siteName, text, truncated, charCount: text.length };
+  const capped = capAtChars(text, maxChars);
+  return { title: title.slice(0, 300), url, domain: hostOf(url), siteName, text: capped.text, truncated: capped.truncated, charCount: capped.text.length };
+}
+
+/**
+ * Apply the article character cap. One implementation for both article kinds, so a native X Article
+ * is truncated exactly the way a fetched page is: at a word boundary, marked with an ellipsis.
+ */
+export function capAtChars(text: string, maxChars: number): { text: string; truncated: boolean } {
+  if (text.length <= maxChars) return { text, truncated: false };
+  return { text: trimTo(text, maxChars), truncated: true };
 }
 
 function attr(doc: Document, sel: string, name: string): string {
@@ -45,7 +53,7 @@ function abs(href: string, base: string): string | null {
   }
 }
 
-function hostOf(url: string): string {
+export function hostOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
@@ -59,4 +67,3 @@ function trimTo(text: string, max: number): string {
   const sp = cut.lastIndexOf(" ");
   return (sp > max * 0.7 ? cut.slice(0, sp) : cut).trimEnd() + "…";
 }
-

@@ -19,6 +19,15 @@ export function routeStatusId(pathname: string): string | null {
   return m?.[1] ?? null;
 }
 
+/**
+ * Handle segment of the same route, for example "dave" for /dave/status/8302, or "i" for the
+ * handle-less /i/status/<id> form X uses when it cannot name the author.
+ */
+export function routeHandle(pathname: string): string | null {
+  const m = /^\/([^/]+)\/status\/\d+(?:\/|$)/.exec(pathname);
+  return m?.[1] ?? null;
+}
+
 export interface PostFilterInput {
   /** The article's own status id, from the shared tweet-id extraction. */
   id: string;

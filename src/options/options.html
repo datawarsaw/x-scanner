@@ -95,10 +95,12 @@
       <section>
         <h2>Articles</h2>
         <p class="muted">
-          When a post links out, x-scanner offers an <em>Analyze article</em> action. Nothing is fetched or billed
-          until you click it. Article access is a separate, optional permission you grant here.
+          When a post links out, x-scanner offers an <em>Analyze article</em> action, and when X renders a long-form
+          article inside a post it offers <em>Analyze X article</em> beside it. Nothing is fetched or billed until you
+          click. Linked pages need the separate, optional permission you grant here; a native X Article is read from
+          the page you are already on and needs none.
         </p>
-        <label class="check"><input id="articleAnalysisEnabled" type="checkbox" /> Offer article analysis on linked posts</label>
+        <label class="check"><input id="articleAnalysisEnabled" type="checkbox" /> Offer article analysis on linked posts and native X Articles</label>
         <div class="row">
           <label>Maximum article characters sent <input id="maxArticleChars" type="number" min="1000" max="40000" step="500" /></label>
           <label>Cached articles <input id="articleCacheMax" type="number" min="20" max="2000" step="10" /></label>

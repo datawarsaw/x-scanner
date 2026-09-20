@@ -13,6 +13,11 @@ export interface SeenRequest {
   model: string;
   kind?: string;
   domain?: string;
+  /** "external" or "x-native": which article path produced this request. */
+  sourceType?: string;
+  subtitle?: string;
+  url?: string;
+  truncated?: boolean;
 }
 
 export function fakeAnswers(state: { text: string; quoted_text?: string }, questionIds: string[]) {
@@ -62,7 +67,18 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
       for await (const chunk of req) body += chunk;
       const parsed = JSON.parse(body) as {
         model: string;
-        state: { text: string; quoted_text?: string; parent_text?: string; is_reply: boolean; kind?: string; domain?: string };
+        state: {
+          text: string;
+          quoted_text?: string;
+          parent_text?: string;
+          is_reply: boolean;
+          kind?: string;
+          domain?: string;
+          url?: string;
+          truncated?: boolean;
+          source?: { type?: string };
+          subtitle?: string;
+        };
         questions: Record<string, unknown>;
       };
       const ids = Object.keys(parsed.questions);
@@ -75,6 +91,10 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
         model: parsed.model,
         kind: parsed.state.kind,
         domain: parsed.state.domain,
+        sourceType: parsed.state.source?.type,
+        subtitle: parsed.state.subtitle,
+        url: parsed.state.url,
+        truncated: parsed.state.truncated,
       });
       const input_tokens = tokensFor(parsed.state);
       totalTokens += input_tokens;
@@ -91,11 +111,15 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
     const pathname = (req.url ?? "/").split("?")[0]!;
     // A status permalink URL renders the thread fixture, so DOM thread-context extraction can be tested.
     // A handle-qualified status URL renders the conversation fixture whose root id matches the route.
-    const file = /^\/[A-Za-z0-9_]+\/status\/\d+$/.test(pathname)
-      ? "status-page.html"
-      : /^\/status\/\d+$/.test(pathname)
-        ? "thread.html"
-        : pathname.replace(/^\//, "") || "timeline.html";
+    // The native X Article fixture answers the same route shape as a real long-form status page.
+    const file =
+      pathname === "/akshay_pachaar/status/2035341800739877091"
+        ? "x-article.html"
+        : /^\/[A-Za-z0-9_]+\/status\/\d+$/.test(pathname)
+          ? "status-page.html"
+          : /^\/status\/\d+$/.test(pathname)
+            ? "thread.html"
+            : pathname.replace(/^\//, "") || "timeline.html";
     try {
       const data = await readFile(path.join(fixtureDir, file));
       const type = file.endsWith(".json") ? "application/json" : "text/html; charset=utf-8";
