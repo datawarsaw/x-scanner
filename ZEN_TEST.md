@@ -34,13 +34,13 @@ running instance has the new code, and About:debugging will happily show the old
 continue into reply testing until these three values are right.
 
 1. Open x-scanner settings and scroll to the About section.
-2. Confirm it reads Version: 0.5.2
+2. Confirm it reads Version: 0.5.3
 3. Confirm Build: shows the short sha of the commit you built (the build prints it, for example "build fad243e"). If
    it reads unknown, the artifact was built outside a git checkout.
 4. Confirm Browser target: Firefox
 5. Confirm Analyze replies/comments is unchecked and its Current value line says OFF.
 6. If any of these disagree, remove and re-add the temporary add-on from dist-firefox/manifest.json, then check again.
-7. The HUD in the corner repeats the same identity quietly as v0.5.2 · <sha>, so you can confirm it on x.com itself
+7. The HUD in the corner repeats the same identity quietly as v0.5.3 · <sha>, so you can confirm it on x.com itself
    without opening about:debugging.
 
 ## 3. Settings
@@ -108,7 +108,8 @@ Scroll a logged-in x.com home timeline, then a profile, a thread, and search, wi
 left off. Confirm:
 
 - replies and comments show no chip at all, and add nothing to the analyzed count or the cost figure
-- the root post of a conversation is still analyzed, and so is a post that quotes another post
+- the post whose own /status/ URL you opened is analyzed, and so is a post that quotes another post. On a conversation
+  page every other top-level article is filtered while replies are off, which is section 9's check
 - the HUD appears and posts receive slots
 - judgments arrive, ordinary posts render clean or flagged
 - promoted posts are skipped, text-less posts are skipped
@@ -124,24 +125,39 @@ left off. Confirm:
 
 Analyze replies/comments is off by default. This is the check that the filter is real and reversible.
 
-Do step 2.1 first. If About does not read Version 0.5.2 with Analyze replies/comments OFF, none of the results below mean
-anything.
+Do step 2.1 first, with these three values on screen before anything below means anything:
 
-1. Open one individual post (its own /status/ URL) that has several replies under it.
-2. The root post must get a chip. Each comment under it must get no chip at all, and scrolling past them must leave the
-   HUD analyzed count and the cost figure unchanged.
-3. In the page console, read what the classifier decided for each post:
+    Version: 0.5.3
+    Build: <the sha printed by the build you loaded>
+    Analyze replies/comments: OFF
 
-       [...document.querySelectorAll("article")].map(a => [a.querySelector(".xs-slot")?.dataset.xsReply, (a.textContent || "").slice(0, 40)])
+On an individual post page the rule is focal post only. With Analyze replies/comments OFF, x-scanner analyzes exactly the
+one top-level article whose own status ID is the ID in the URL, and filters every other top-level article on that page.
+That is deliberate: X does not always render a "Replying to" row for direct comments, so reply text is not a reliable
+signal there, and anything else X mounts below the focal post on a conversation page, comments and recommendations alike,
+is out of scope for main-posts-only mode. On home, profiles, search and lists the old markup rule still decides.
 
-   The root post must read false and every comment must read true. This is the diagnostic that separates the two
-   possible causes: a comment that is scored while reading false means reply detection missed it in this markup, while a
-   missing attribute on any slot means the running build predates the diagnostic and step 2.1 was not satisfied.
-4. Open the extension inspector and confirm no request was made for the reply text.
+1. Open one individual post (its own /<handle>/status/<id> URL) that has several replies under it.
+2. The focal post must get a chip, and its status ID must equal the ID in the address bar. Every other top-level article
+   on the page must get no chip at all, and scrolling past them must leave the HUD analyzed count and the cost figure
+   unchanged.
+3. In the page console, read what the filter decided for each post:
+
+       [...document.querySelectorAll("article[data-testid='tweet']")].map(a => { const s = a.querySelector(".xs-slot"); return [s?.dataset.tweetId, s?.dataset.xsReply, s?.dataset.xsFilterReason, (a.textContent || "").slice(0, 40)] })
+
+   The focal post must show its own status ID, data-xs-reply false, and no filter reason. Every other article must show
+   data-xs-filter-reason="status-page-non-root". data-xs-reply is the older markup classifier and may well read false for a
+   direct comment: that miss is exactly what v0.5.3 fixes, so the filter reason, not the reply flag, is the value to read
+   on this page. A missing attribute on any slot means the running build predates the diagnostics and step 2.1 was not
+   satisfied.
+4. Open the extension inspector and confirm no request was made for the comment text.
 5. Turn Analyze replies/comments on and save, then reload x.com and open the same post. Replies should now be analyzed
    exactly as they were in v0.5, with thread context attaching the parent.
-6. Turn it back off. The reply chips must disappear again, including any built from cached results, and no further reply
-   requests may be made.
+6. Turn it back off. The comment chips must disappear again, including any built from cached results, and no further
+   comment requests may be made.
+7. Check one timeline surface with replies still off: home, a profile, or search. There, a post X marks with a "Replying
+   to" row must still be skipped and show no chip, and an ordinary post must still be analyzed. The focal-post rule
+   applies to individual /status/ pages only.
 
 ## 10. Real Jev / TypeSafe
 

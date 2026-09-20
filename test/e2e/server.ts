@@ -90,7 +90,12 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
     }
     const pathname = (req.url ?? "/").split("?")[0]!;
     // A status permalink URL renders the thread fixture, so DOM thread-context extraction can be tested.
-    const file = /^\/status\/\d+$/.test(pathname) ? "thread.html" : pathname.replace(/^\//, "") || "timeline.html";
+    // A handle-qualified status URL renders the conversation fixture whose root id matches the route.
+    const file = /^\/[A-Za-z0-9_]+\/status\/\d+$/.test(pathname)
+      ? "status-page.html"
+      : /^\/status\/\d+$/.test(pathname)
+        ? "thread.html"
+        : pathname.replace(/^\//, "") || "timeline.html";
     try {
       const data = await readFile(path.join(fixtureDir, file));
       const type = file.endsWith(".json") ? "application/json" : "text/html; charset=utf-8";

@@ -18,7 +18,7 @@ export function browserTarget(manifest: BuildManifest): "Chromium" | "Firefox" {
   return manifest.background?.service_worker ? "Chromium" : "Firefox";
 }
 
-/** Quiet one-line identity, e.g. "v0.5.2 · fad243e". */
+/** Quiet one-line identity, e.g. "v0.5.3 · 8e2e65c". */
 export function versionLabel(version: string): string {
   return "v" + version + " · " + BUILD_SHA;
 }

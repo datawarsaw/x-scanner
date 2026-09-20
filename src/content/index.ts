@@ -3,6 +3,7 @@ import type { AnalysisResult, AnalyzeReply, Settings, TweetState } from "../shar
 import { loadSettings, onSettingsChange } from "../shared/settings.ts";
 import { buildQuestions, questionsHash } from "../shared/questions.ts";
 import { extractTweet, isReply, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
+import { routeStatusId, shouldAnalyzePost } from "./route.ts";
 import { TweetWatcher } from "./observe.ts";
 import { Scheduler } from "./queue.ts";
 import { ResultStore } from "./store.ts";
@@ -124,11 +125,7 @@ class App {
     if (!id) return;
     this.slots.set(id, slot);
     this.attachArticles(article);
-    if (this.filteredReply(article)) {
-      slot.dataset.xsReply = "true";
-      markSlot(slot, "filtered");
-      return;
-    }
+    if (!this.filterInto(slot, id, isReply(article))) return;
     const cached = this.store.get(this.cacheKey(article, id));
     if (cached) {
       this.render(slot, cached);
@@ -141,12 +138,7 @@ class App {
     if (!t) return;
     const slot = ensureSlot(article, t.id);
     this.slots.set(t.id, slot);
-    // Diagnostic for the reply filter: what the classifier decided about this post.
-    slot.dataset.xsReply = String(t.state.is_reply);
-    if (!this.settings.analyzeReplies && t.state.is_reply) {
-      markSlot(slot, "filtered");
-      return;
-    }
+    if (!this.filterInto(slot, t.id, t.state.is_reply)) return;
     if (t.promoted) {
       markSlot(slot, "skipped", "promoted, not analyzed");
       return;
@@ -246,10 +238,26 @@ class App {
   /**
    * Replies and comments are left alone unless the reader turns them on: no request, no chip, no cost.
    * Quoted posts are not replies, and an author's own thread is out of scope for this filter.
+   *
+   * On an individual status page the route decides instead, so the filter takes the article's own id.
+   * Returns true when the article is a post for normal judging, and writes the diagnostics either
+   * way: data-xs-reply always, data-xs-filter-reason only on a filtered article.
    */
-  private filteredReply(article: Element): boolean {
-    if (this.settings.analyzeReplies) return false;
-    return isReply(article);
+  private filterInto(slot: HTMLElement, id: string, reply: boolean): boolean {
+    slot.dataset.xsReply = String(reply);
+    const decision = shouldAnalyzePost({
+      id,
+      routeId: routeStatusId(location.pathname),
+      analyzeReplies: this.settings.analyzeReplies,
+      isReply: reply,
+    });
+    if (decision.analyze) {
+      delete slot.dataset.xsFilterReason;
+      return true;
+    }
+    slot.dataset.xsFilterReason = decision.reason;
+    markSlot(slot, "filtered");
+    return false;
   }
 
   private attachArticles(article: HTMLElement): void {

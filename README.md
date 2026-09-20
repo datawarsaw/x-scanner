@@ -121,7 +121,7 @@ Measured on 2026-09-18 with `jev-1.13.0` over the 18 sample posts in `test/fixtu
 - **Enabled**: master switch.
 - **Scope**: everywhere on X (default), or the home timeline only.
 - **Only when logged in as**: a handle, for people who switch accounts and want it on one.
-- **Analyze replies/comments**: off by default. While it is off, posts X marks as replies are never sent to Jev, so they add no cost and show no chip. Text quoted inside a post is not a reply and is always included.
+- **Analyze replies/comments**: off by default. While it is off, posts X marks as replies are never sent to Jev, so they add no cost and show no chip. On an individual `/<handle>/status/<id>` page the route decides instead: only the post whose own status ID matches the URL is analyzed, and the other top-level articles there, direct comments and recommendations alike, are filtered, because X does not always render a `Replying to` row for them. Text quoted inside a post is not a reply and is always included.
 - **Analysis preset** and **thread context**: which typed questions run, and how much of a thread is attached.
 - **Articles**: whether the *Analyze article* action appears, the character cap sent to Jev, the article cache size,
   and a one-time **Grant article access** control.
@@ -209,7 +209,8 @@ The end-to-end test starts a fake Jev server, scrolls the fixture like a reader,
 right flags appear, that promoted and empty posts are never sent, that the panel's cost equals token
 usage times price, that node recycling does not double-bill, that scrolling back and reloading send
 nothing new, that scope and account filters pause the extension, and that the settings page round
-trips. It needs a Chromium or Chrome for Testing binary (`npx playwright-core install chromium`, or
+trips, and that on an individual status page only the focal post is judged while replies are off.
+It needs a Chromium or Chrome for Testing binary (`npx playwright-core install chromium`, or
 set `CHROME_PATH`). Branded Google Chrome no longer accepts `--load-extension`.
 
 ## Limits
@@ -219,6 +220,7 @@ set `CHROME_PATH`). Branded Google Chrome no longer accepts `--load-extension`.
 - Article extraction is a small readable-text pass, not a reader-mode engine. Pages that render entirely in client-side JavaScript, or that hide the body behind a paywall or a consent wall, yield little or no text, and the card says so rather than sending page chrome.
 - Thread context is read from the DOM of the page you are on, and only on a post's own URL. A home-timeline neighbour is never treated as a parent.
 - Session ranking uses a fixed weighted sum over each preset's typed answers. It is a local sort key, not a judgement about the post's value.
+- On an individual status page with Analyze replies/comments off, only the focal post is analyzed: the post whose own status ID matches the URL. The other top-level articles on that conversation page, possible recommendations included, are filtered deliberately, and X not always rendering a `Replying to` row for direct comments is why the route rather than the markup decides there.
 - Replies by the original author that form a thread are skipped while Analyze replies/comments is off, because X does not mark that distinction. Author-thread detection is intentionally deferred.
 - Works on x.com as of September 2026. The selectors live in `src/content/selectors.ts`; if X changes
   its markup, that is the file to fix. The automated tests run against the fixture, not live X.
