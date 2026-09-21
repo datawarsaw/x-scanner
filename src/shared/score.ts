@@ -15,6 +15,11 @@ export function signalScore(preset: PresetId, dimensions: Dimension[], answers: 
   };
   const take = (id: string, fallback = 0) => val(id) ?? fallback;
 
+  if (preset === "signal_v2") {
+    // Signal v2 deliberately has no aggregate: its components stay separate and nothing is weighted.
+    // Session ranking uses one named component instead of inventing a composite quality score.
+    return clamp01(take("information_density"));
+  }
   if (preset === "signal") {
     return clamp01(0.3 * take("info_density") + 0.25 * take("actionable") + 0.25 * take("originality") + 0.2 * take("evidence") - 0.1 * take("promotion") - 0.15 * take("engagement_bait"));
   }

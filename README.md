@@ -11,6 +11,32 @@ under the post, usually before you have scrolled to it. Most posts
 come back clean. The ones that don't get an orange flag. Scroll for a minute and the panel reads
 something like 80 posts, $0.0027.
 
+## What v0.6 adds
+
+- **Signal v2.** An experimental preset that keeps three questions apart instead of blending them into
+  one number:
+
+  - **Topic** - what is this post about? One of ten categories, from AI and Data / BI to Politics /
+    Society and Other. Descriptive only, never a quality judgment.
+  - **Signal** - how much useful information does it carry? Four ordered rubrics scored 0 to 3:
+    information density, original insight, evidence, actionable.
+  - **Filters** - is it pushing something or fishing for engagement? Promo and engagement bait, each a
+    probability.
+
+  The row under a post leads with the topic and then puts all six components on one shared 0-100 range:
+  `✓ clean · AI · density 80 · insight 60 · evidence 70 · actionable 50 · promo 10 · bait 5`. Click it for
+  the detail card, which keeps the raw semantics under every value - `80 / 100` above `Raw score: 2.4 / 3`,
+  and `12 / 100` above `Probability true: 12%` - and lists the candidate topics when Jev returns a
+  distribution.
+
+  Three things are worth knowing about that range. A score's 0-100 is a normalized rubric level, not a
+  percentage. A noul's 0-100 is the probability that it is true. They share a display range and nothing
+  else. And there is no overall signal score: the components are shown separately, no weights are invented,
+  and session ranking names the one component it sorts by.
+
+  Signal v2 is not calibrated against a labelled set yet, so it stays experimental: it is never selected for
+  you, and Default keeps its questions and behavior exactly as they were.
+
 ## What v0.5 adds
 
 - **Analysis presets.** Default (the original six questions), Signal, AI / Tech, and Article. Results are cached per
@@ -96,13 +122,16 @@ question's wording, its levels, or the model, and the result cache is dropped.
 | preset | what it judges | context on a post page |
 | --- | --- | --- |
 | Default | the six dimensions above; user editable | quoted post only |
-| Signal | density, actionability, originality, evidence, promo, bait | quoted post + direct parent |
+| Signal v2 | topic, then information density, original insight, evidence, actionable, promo, bait | quoted post + direct parent |
+| Signal (legacy) | density, actionability, originality, evidence, promo, bait | quoted post + direct parent |
 | AI / Tech | technical depth, benchmark support, novelty, speculation, implementation use, hype | quoted post + a couple of preceding posts |
 | Article | density, evidence, sourcing, originality, depth, promo, speculation, action | linked pages and native X Articles |
 
-The three non-Default presets are read-only in v0.5; their thresholds are first-pass defaults for this release
-rather than values calibrated against a labelled set. The Default preset keeps v0.1's questions and thresholds
-exactly, so an upgraded install behaves the same as before until you switch.
+Five presets ship in v0.6. The non-Default presets are read-only, and their thresholds are first-pass
+defaults rather than values calibrated against a labelled set. Default keeps v0.1's questions and
+thresholds exactly, so an upgraded install behaves the same as before until you switch; Signal v2 is
+experimental and is never selected for you. Switching presets is free in both directions: each preset
+keeps its own cached answers, and none of them are billed twice.
 
 ## Cost and speed
 
@@ -164,7 +193,7 @@ src/
   background.ts         service worker: holds the key, calls Jev, keeps lifetime totals
   shared/
     questions.ts        the six default dimensions, request builder, cache hash
-    presets.ts          Default, Signal, AI / Tech and Article analysis profiles
+    presets.ts          Default, Signal v2, Signal (legacy), AI / Tech and Article analysis profiles
     article.ts          readable-text extraction from fetched HTML
     links.ts            outbound article candidate detection and deduping
     context.ts          bounded thread context and the versioned analysis payload
@@ -226,7 +255,7 @@ set `CHROME_PATH`). Branded Google Chrome no longer accepts `--load-extension`.
 - Article extraction is a small readable-text pass, not a reader-mode engine. Pages that render entirely in client-side JavaScript, or that hide the body behind a paywall or a consent wall, yield little or no text, and the card says so rather than sending page chrome.
 - Native X Article detection matches semantics - the route's status ID, heading roles, prose blocks and X's own container names - never X's generated class names or a position on screen. It is built to miss rather than to guess, so a reader markup it does not recognise leaves the action hidden; the slot then reports what it decided in `data-xs-native-article`, and ZEN_TEST.md records how to read that on a live page.
 - Thread context is read from the DOM of the page you are on, and only on a post's own URL. A home-timeline neighbour is never treated as a parent.
-- Session ranking uses a fixed weighted sum over each preset's typed answers. It is a local sort key, not a judgement about the post's value.
+- Session ranking uses a fixed weighted sum over each preset's typed answers. Signal v2 has no weighted sum at all: it ranks by information density alone, so nothing resembling an overall signal score exists. Either way the ranking is a local sort key, not a judgement about the post's value.
 - On an individual status page with Analyze replies/comments off, only the focal post is analyzed: the post whose own status ID matches the URL. The other top-level articles on that conversation page, possible recommendations included, are filtered deliberately, and X not always rendering a `Replying to` row for direct comments is why the route rather than the markup decides there.
 - Replies by the original author that form a thread are skipped while Analyze replies/comments is off, because X does not mark that distinction. Author-thread detection is intentionally deferred.
 - Works on x.com as of September 2026. The selectors live in `src/content/selectors.ts`; if X changes

@@ -20,7 +20,16 @@ export interface SeenRequest {
   truncated?: boolean;
 }
 
-export function fakeAnswers(state: { text: string; quoted_text?: string }, questionIds: string[]) {
+/** Signal v2 asks these as scores; the fixture values are fixed so the display can be asserted. */
+const SIGNAL_V2_SCORES: Record<string, number> = { information_density: 2.4, original_insight: 1.8, evidence: 2.1, actionable: 1.5 };
+
+/** Candidate distribution the fake reports for a choice question: the documented Signal v2 example. */
+const CHOICE_SHARES: Record<string, number> = { ai: 0.72, software_engineering: 0.18, tech_industry: 0.07, other: 0.03 };
+
+export function fakeAnswers(
+  state: { text: string; quoted_text?: string },
+  questions: Record<string, { type?: string; criteria?: unknown }>,
+) {
   const t = state.text.toLowerCase();
   const v = { info_density: 1.0, engagement_bait: 0.08, promotion: 0.1, secondhand: 0.2, padding: 0.5, about_jev: 0.03 };
   if (/typesafe|jev 1\.|system one/.test(t)) v.about_jev = 0.96;
@@ -34,11 +43,25 @@ export function fakeAnswers(state: { text: string; quoted_text?: string }, quest
   if ((t.match(/\d/g) ?? []).length >= 6) v.info_density = 2.8;
   if (/honestly|you know|at the end of the day/.test(t)) v.padding = 1.8;
   const answers: Record<string, unknown> = {};
-  for (const id of questionIds) {
+  // The answer shape follows the question's declared type, not its id: v0.6 asks one id as a score in
+  // one preset and as a noul in another, and Signal v2 asks a categorical topic.
+  for (const [id, q] of Object.entries(questions)) {
     const val = (v as Record<string, number>)[id] ?? 0.1;
-    if (id === "info_density") answers[id] = { type: "score", score: val, confidence: 0.9, probabilities: {}, legend: {} };
-    else if (id === "padding") answers[id] = { type: "score", score: val, confidence: 0.8, probabilities: {}, legend: {} };
-    else answers[id] = { type: "noul", noul: val };
+    if (q?.type === "score") {
+      answers[id] = { type: "score", score: SIGNAL_V2_SCORES[id] ?? val, confidence: 0.9, probabilities: {}, legend: {} };
+    } else if (q?.type === "choice") {
+      const optionIds = Object.keys((q.criteria as Record<string, string>) ?? {});
+      const probabilities: Record<string, number> = {};
+      for (const oid of optionIds) {
+        const share = CHOICE_SHARES[oid];
+        if (share !== undefined) probabilities[oid] = share;
+      }
+      // A choice dimension the fake does not know still gets a usable distribution.
+      if (!Object.keys(probabilities).length) optionIds.slice(0, 4).forEach((oid, i) => (probabilities[oid] = [0.72, 0.18, 0.07, 0.03][i]!));
+      answers[id] = { type: "choice", choice: optionIds[0] ?? "other", confidence: 0.9, probabilities };
+    } else {
+      answers[id] = { type: "noul", noul: val };
+    }
   }
   return answers;
 }
@@ -79,7 +102,7 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
           source?: { type?: string };
           subtitle?: string;
         };
-        questions: Record<string, unknown>;
+        questions: Record<string, { type?: string; criteria?: unknown }>;
       };
       const ids = Object.keys(parsed.questions);
       requests.push({
@@ -100,7 +123,7 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
       totalTokens += input_tokens;
       await new Promise((r) => setTimeout(r, 60 + Math.random() * 60));
       res.writeHead(200, { "Content-Type": "application/json", ...cors });
-      res.end(JSON.stringify({ model: parsed.model, answers: fakeAnswers(parsed.state, ids), usage: { input_tokens, output_tokens: 85 } }));
+      res.end(JSON.stringify({ model: parsed.model, answers: fakeAnswers(parsed.state, parsed.questions), usage: { input_tokens, output_tokens: 85 } }));
       return;
     }
     if (req.method === "GET" && req.url === "/__requests") {

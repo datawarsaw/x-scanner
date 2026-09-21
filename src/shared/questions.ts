@@ -103,6 +103,12 @@ export function buildQuestions(dimensions: Dimension[]): Record<string, JevQuest
     if (!d.enabled) continue;
     if (d.type === "score") {
       out[d.id] = { type: "score", instructions: d.instructions, criteria: d.levels ?? [] };
+    } else if (d.type === "choice") {
+      // Jev's choice criteria is an option name to criterion map, and that name is what comes back in
+      // `choice`. The option id is the wire form; the human label stays display policy.
+      const criteria: Record<string, string> = {};
+      for (const o of d.options ?? []) criteria[o.id] = o.description;
+      out[d.id] = { type: "choice", instructions: d.instructions, criteria };
     } else {
       out[d.id] = { type: "noul", instructions: d.instructions, criteria: d.criteria };
     }
@@ -120,8 +126,9 @@ export function questionsHash(dimensions: Dimension[], model: string): string {
   return fnv1a(model + "|" + JSON.stringify(keys.map((k) => [k, q[k]])));
 }
 
-/** Highest value a dimension can take: 1 for noul, levels-1 for score. */
+/** Highest value a dimension can take: 1 for noul and choice, levels-1 for score. */
 export function maxValue(d: Dimension): number {
+  if (d.type === "choice") return 1;
   return d.type === "noul" ? 1 : Math.max(1, (d.levels?.length ?? 2) - 1);
 }
 
@@ -131,7 +138,17 @@ export function validateDimension(d: Dimension): string[] {
   if (!/^[a-z][a-z0-9_]*$/.test(d.id)) problems.push("id must be snake_case (a-z, 0-9, _)");
   if (!d.label.trim()) problems.push("label is empty");
   if (!d.instructions.trim()) problems.push("instructions are empty");
-  if (d.type === "score") {
+  if (d.type === "choice") {
+    const options = d.options ?? [];
+    if (options.length < 2) problems.push("choice needs at least 2 options");
+    const seen = new Set<string>();
+    for (const o of options) {
+      if (!/^[a-z][a-z0-9_]*$/.test(o.id)) problems.push(`option id "${o.id}" must be snake_case`);
+      else if (seen.has(o.id)) problems.push(`duplicate option id "${o.id}"`);
+      seen.add(o.id);
+      if (!o.label.trim()) problems.push(`option "${o.id}" has no label`);
+    }
+  } else if (d.type === "score") {
     const n = d.levels?.filter((l) => l.trim()).length ?? 0;
     if (n < 2 || n > 10) problems.push("score needs 2 to 10 levels");
     if (d.threshold < 0 || d.threshold > Math.max(0, n - 1)) problems.push(`threshold must be within 0 and ${n - 1}`);

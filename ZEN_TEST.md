@@ -34,13 +34,13 @@ running instance has the new code, and About:debugging will happily show the old
 continue into reply testing until these three values are right.
 
 1. Open x-scanner settings and scroll to the About section.
-2. Confirm it reads Version: 0.5.4
+2. Confirm it reads Version: 0.6.0
 3. Confirm Build: shows the short sha of the commit you built (the build prints it, for example "build fad243e"). If
    it reads unknown, the artifact was built outside a git checkout.
 4. Confirm Browser target: Firefox
 5. Confirm Analyze replies/comments is unchecked and its Current value line says OFF.
 6. If any of these disagree, remove and re-add the temporary add-on from dist-firefox/manifest.json, then check again.
-7. The HUD in the corner repeats the same identity quietly as v0.5.4 · <sha>, so you can confirm it on x.com itself
+7. The HUD in the corner repeats the same identity quietly as v0.6.0 · <sha>, so you can confirm it on x.com itself
    without opening about:debugging.
 
 ## 3. Settings
@@ -55,14 +55,16 @@ Never paste a real key into docs, tickets, screenshots, or chat.
 
 ## 4. Presets
 
-1. Confirm the preset selector lists Default, Signal, AI / Tech and Article, and that Default is selected.
+1. Confirm the preset selector lists Default, Signal (legacy), Signal v2, AI / Tech and Article, and that Default is selected.
 2. On x.com, note the chips under a few posts with Default.
 3. Switch to Signal, save, reload x.com, and scroll. The chips should now show Signal dimensions (informative, actionable,
    original, evidence, promo, engagement bait) instead of the Default ones.
 4. Confirm the HUD title shows the active preset name.
 5. Switch back to Default and confirm the original chips return.
 
-Switching presets re-asks posts, because the cache is keyed by preset. That is expected and is the point of the check.
+Switching to a preset for the first time re-asks the posts on screen, because the cache is keyed by preset. Switching back
+to a preset that has already answered those posts reuses its own answers: no preset is billed twice, and returning to
+Default restores Default's cached chips without a new call.
 
 ## 5. Articles
 
@@ -173,7 +175,7 @@ Analyze replies/comments is off by default. This is the check that the filter is
 
 Do step 2.1 first, with these three values on screen before anything below means anything:
 
-    Version: 0.5.4
+    Version: 0.6.0
     Build: <the sha printed by the build you loaded>
     Analyze replies/comments: OFF
 
@@ -226,6 +228,36 @@ origins you explicitly asked to analyze.
 
 Do not claim browser-restart persistence unless you tested a non-temporary installation. Temporary add-ons are removed when
 Zen exits.
+
+## 14. Signal v2
+
+The experimental preset added in v0.6.0. It separates what a post is about, how much useful signal it
+carries, and whether it is pushing something or fishing for engagement.
+
+1. Reload the final Firefox artifact and re-check section 2.1: Version must read 0.6.0 and Build must be the
+   sha of the commit you built.
+2. Select Signal v2 in the preset list, save, and confirm the HUD title names it.
+3. Open several real posts that differ in kind: a technical write-up, an analytics or BI post, a company or
+   market post, a personal update, and something promotional.
+4. Read the Topic token that leads each row. It must describe the post's actual subject rather than a passing
+   mention, and it is never presented as a quality judgment.
+5. Read the six components: density, insight, evidence, actionable, promo, bait. They share a 0-100 range.
+   Check the values against the post in front of you rather than against the topic in general.
+6. Open Details. It must list the topic plus exactly six numeric components, and jevpilled, secondhand and
+   filler must be absent.
+7. In Details, confirm every component keeps its raw semantics under the shared range: a score shows
+   Raw score: n / 3 beneath n / 100, and a noul shows Probability true: n%. Confirm the topic lists its
+   candidate topics when Jev returned a distribution, and that no overall signal score appears anywhere.
+8. Confirm replies and comments still show no chip and add nothing to the cost while Analyze replies/comments
+   is OFF.
+9. Confirm an external Analyze article and a native Analyze X article still work and are still labelled
+   ARTICLE and X ARTICLE. Signal v2 is never applied to an article body.
+10. Click an analyzed article again, then reload and click it again: both must come from cache.
+11. Open the session panel. Topics must show a distribution over the posts you analyzed, Averages must list the
+    six components, and no combined score may appear. Confirm that opening it made no Jev call.
+
+Record poor classifications instead of changing prompts on the spot - bad topics and bad components alike.
+Those examples are the calibration evidence a later version needs.
 
 ## Record
 

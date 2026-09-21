@@ -32,25 +32,30 @@ Bring your own TypeSafe API key. Typical cost is about $0.00004 per post; a thou
 four cents. Results are cached by post id so scrolling back, reloading or returning tomorrow re-bills
 nothing. Promoted posts and posts without text are never sent.
 
-Four analysis presets - Default, Signal, AI / Tech and Article - let you switch which typed questions
-run without editing anything by hand. Results are cached per preset, so switching never reuses one
-preset's answers for another.
+Five analysis presets - Default, Signal v2, Signal (legacy), AI / Tech and Article - let you switch which
+typed questions run without editing anything by hand. Results are cached per preset, so switching never
+reuses one preset's answers for another and never bills the same preset twice.
+
+Signal v2 is the new experimental one. It keeps three questions apart: what the post is about (one of ten
+topics), how much useful signal it carries (information density, original insight, evidence, actionable),
+and whether it is selling something or fishing for engagement (promo, bait). The values share a 0-100
+display range, and there is deliberately no single signal score.
 
 Replies and comments are skipped by default, so browsing a timeline costs a fraction of what it would if
 every comment were analyzed. Turn them on in settings when you want them.
 
 When a post links to an article, a subtle Analyze article action appears. Nothing is fetched or billed
 until you press it, and the readable text is capped, cached by canonical URL and never re-fetched. On a
-post's own page the Signal and AI / Tech presets can attach the quoted post, the direct parent, or a
-couple of preceding posts, so a reply is judged against what it answers.
+post's own page the Signal v2, Signal and AI / Tech presets can attach the quoted post, the direct parent,
+or a couple of preceding posts, so a reply is judged against what it answers.
 
 When X renders a long-form article inside a post, an Analyze X article action appears next to it. That
 text is read straight out of the page you are already on, so it needs no extra permission and no extra
 request, and it is judged on its own under the Article preset while the post above keeps its own result.
 
 Click session in the corner panel for a local summary: posts analyzed, cache hits, what the session cost,
-average latency, flagged counts, which dimensions showed up, and the top-scoring posts and articles. It
-costs no extra API calls.
+average latency, flagged counts, which dimensions showed up, and the top-scoring posts and articles. Under
+Signal v2 it also shows the topic distribution and the average of each component. It costs no extra API calls.
 
 No server, no analytics. Only the post text goes to api.typesafe.ai. Your key stays in this browser's
 extension storage. Open source: https://github.com/oso95/x-scanner

@@ -53,6 +53,10 @@
 .xs-dim {
   opacity: 0.75;
 }
+.xs-topic {
+  color: inherit;
+  font-weight: 700;
+}
 .xs-sep {
   opacity: 0.5;
 }
@@ -117,6 +121,32 @@
 .xs-detail-v {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+/* A categorical row carries no magnitude: the chosen label, then the candidates under it. */
+.xs-detail-choice {
+  margin-top: 2px;
+}
+.xs-detail-choice-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+}
+.xs-detail-choice-v {
+  text-align: right;
+  word-break: break-word;
+}
+.xs-detail-cand {
+  display: block;
+  padding-left: 8px;
+  opacity: 0.5;
+}
+/* The shared 0..100 range on top, the dimension's own rubric directly underneath it. */
+.xs-detail-raw {
+  display: block;
+  padding-left: 8px;
+  margin-bottom: 2px;
+  opacity: 0.45;
 }
 .xs-detail-foot {
   margin-top: 6px;

@@ -25,6 +25,20 @@ export class RateWindow {
   }
 }
 
+/** One normalized component of a billed result, for the Signal v2 session averages. */
+export interface Observation {
+  id: string;
+  label: string;
+  /** 0..1, already normalized against the dimension's own rubric. */
+  value: number;
+}
+
+/** A categorical answer from a billed result, for the Signal v2 topic distribution. */
+export interface TopicObservation {
+  id: string;
+  label: string;
+}
+
 export interface SessionSnapshot {
   analyzed: number;
   costUsd: number;
@@ -42,6 +56,10 @@ export interface SessionSnapshot {
   latencies: number[];
   dimHits: Record<string, number>;
   topPosts: { id: string; score: number; kind: "post" | "article"; title?: string }[];
+  /** Signal v2 only: how many billed results landed in each topic, highest first. */
+  topics: { id: string; label: string; n: number }[];
+  /** Signal v2 only: the 0..100 mean of each component in dimension order. Never combined. */
+  averages: { id: string; label: string; mean: number }[];
 }
 
 /** Counters for this page load. Lifetime totals live in the service worker. */
@@ -61,6 +79,8 @@ export class SessionStats {
   private latencies: number[] = [];
   private dimHits: Record<string, number> = {};
   private topPosts: { id: string; score: number; kind: "post" | "article"; title?: string }[] = [];
+  private topicCounts = new Map<string, { label: string; n: number }>();
+  private sums = new Map<string, { label: string; sum: number; n: number }>();
   private rate = new RateWindow(5000);
   private listeners = new Set<(s: SessionSnapshot) => void>();
   private now: () => number;
@@ -90,11 +110,23 @@ export class SessionStats {
     id: string;
     kind: "post" | "article";
     title?: string;
+    /** Signal v2 passes its components here so the session can average them without a new call. */
+    observations?: Observation[];
+    topic?: TopicObservation;
   }): void {
     this.recordResult(opts, opts.judgments);
     if (opts.kind === "article") this.articles += 1;
     if (opts.flagged) this.flagged += 1;
     for (const id of opts.hits) this.dimHits[id] = (this.dimHits[id] ?? 0) + 1;
+    // Averages come from billed results only, exactly like dimHits: a cache hit already counted once.
+    for (const o of opts.observations ?? []) {
+      const cur = this.sums.get(o.id) ?? { label: o.label, sum: 0, n: 0 };
+      this.sums.set(o.id, { label: o.label, sum: cur.sum + o.value, n: cur.n + 1 });
+    }
+    if (opts.topic) {
+      const cur = this.topicCounts.get(opts.topic.id) ?? { label: opts.topic.label, n: 0 };
+      this.topicCounts.set(opts.topic.id, { label: opts.topic.label, n: cur.n + 1 });
+    }
     this.topPosts.push({ id: opts.id, score: opts.score, kind: opts.kind, title: opts.title });
     this.topPosts.sort((a, b) => b.score - a.score);
     if (this.topPosts.length > 8) this.topPosts.length = 8;
@@ -141,6 +173,8 @@ export class SessionStats {
       latencies: this.latencies.slice(),
       dimHits: { ...this.dimHits },
       topPosts: this.topPosts.slice(),
+      topics: Array.from(this.topicCounts, ([id, v]) => ({ id, label: v.label, n: v.n })).sort((a, b) => b.n - a.n),
+      averages: Array.from(this.sums, ([id, v]) => ({ id, label: v.label, mean: v.n ? Math.round((v.sum / v.n) * 100) : 0 })),
     };
   }
 

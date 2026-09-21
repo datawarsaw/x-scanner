@@ -1,7 +1,8 @@
 import type { SessionSnapshot } from "./stats.ts";
+import type { PresetId } from "../shared/types.ts";
 import { PRESETS } from "../shared/presets.ts";
 
-export function renderSessionPanel(s: SessionSnapshot, presetLabel: string): HTMLElement {
+export function renderSessionPanel(s: SessionSnapshot, presetLabel: string, presetId: PresetId): HTMLElement {
   const root = document.createElement("div");
   root.className = "xs-session";
   const avg = s.latencies.length ? Math.round(s.latencies.reduce((a, b) => a + b, 0) / s.latencies.length) : null;
@@ -11,6 +12,15 @@ export function renderSessionPanel(s: SessionSnapshot, presetLabel: string): HTM
   const topPost = s.topPosts.filter((t) => t.kind === "post").slice(0, 3);
   const topArt = s.topPosts.filter((t) => t.kind === "article").slice(0, 3);
   const dimName = (id: string) => PRESETS.flatMap((p) => p.dimensions).find((d) => d.id === id)?.label ?? id;
+  // Signal v2 adds what the posts were about and how each component averaged. Topic and signal stay
+  // separate rows, and nothing is combined: there is no overall signal score to show.
+  const signalV2 = presetId === "signal_v2";
+  const topicTotal = s.topics.reduce((n, t) => n + t.n, 0);
+  const topics = s.topics.map((t) => t.label + " " + (topicTotal ? Math.round((t.n / topicTotal) * 100) : 0) + "%").join(" · ");
+  const means = s.averages.map((a) => a.label + " " + a.mean).join(" · ");
+  const note = signalV2
+    ? "Components are local means of typed answers. Topic is descriptive, and no overall signal score is computed. No extra Jev call."
+    : "Scores are local weighted sums of typed answers. No extra Jev call.";
   root.innerHTML = `
     <div class="xs-session-h">session · ${esc(presetLabel)}</div>
     <div class="xs-session-grid">
@@ -23,9 +33,11 @@ export function renderSessionPanel(s: SessionSnapshot, presetLabel: string): HTM
     </div>
     ${row("useful", useful.slice(0, 4).map(([id, n]) => dimName(id) + " " + n).join(" · ") || "–")}
     ${row("noise", noise.slice(0, 4).map(([id, n]) => dimName(id) + " " + n).join(" · ") || "–")}
-    ${row("top posts", topPost.map((t) => (t.title ?? t.id) + " " + t.score.toFixed(2)).join(" · ") || "–")}
+    ${row(signalV2 ? "top posts (by density)" : "top posts", topPost.map((t) => (t.title ?? t.id) + " " + t.score.toFixed(2)).join(" · ") || "–")}
     ${row("top articles", topArt.map((t) => (t.title ?? t.id) + " " + t.score.toFixed(2)).join(" · ") || "–")}
-    <div class="xs-session-note">Scores are local weighted sums of typed answers. No extra Jev call.</div>
+    ${signalV2 ? row("topics", topics || "–") : ""}
+    ${signalV2 ? row("averages", means || "–") : ""}
+    <div class="xs-session-note">${esc(note)}</div>
   `;
   return root;
 }
@@ -37,4 +49,3 @@ function row(k: string, v: string): string {
 function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 }
-

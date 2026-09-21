@@ -1,5 +1,5 @@
 // Content script entry. Wires the watcher, scheduler, cache, HUD and renderer together.
-import type { AnalysisResult, AnalyzeReply, ArticleState, Settings, TweetState } from "../shared/types.ts";
+import type { AnalysisResult, AnalyzeReply, ArticleState, Settings, TweetState, Verdict } from "../shared/types.ts";
 import { loadSettings, onSettingsChange } from "../shared/settings.ts";
 import { buildQuestions, questionsHash } from "../shared/questions.ts";
 import { extractTweet, isReply, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
@@ -7,9 +7,9 @@ import { routeStatusId, shouldAnalyzePost } from "./route.ts";
 import { TweetWatcher } from "./observe.ts";
 import { Scheduler } from "./queue.ts";
 import { ResultStore } from "./store.ts";
-import { SessionStats } from "./stats.ts";
+import { SessionStats, type Observation, type TopicObservation } from "./stats.ts";
 import { Hud } from "./hud.ts";
-import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot, ensureArticleAction, fillArticleResult, type ArticleAction } from "./render.ts";
+import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot, ensureArticleAction, fillArticleResult, type ArticleAction, type DisplayMode } from "./render.ts";
 import { verdicts } from "./labels.ts";
 import { ArticleStore } from "./article-store.ts";
 import { renderSessionPanel } from "./session-panel.ts";
@@ -223,13 +223,20 @@ class App {
       score,
       id,
       kind: "post",
+      observations: this.displayMode() === "normalized" ? observationsOf(vs) : undefined,
+      topic: this.displayMode() === "normalized" ? topicOf(vs) : undefined,
     });
     const s = this.slots.get(id);
     if (s && s.isConnected && s.dataset.tweetId === id) this.render(s, result);
   }
 
+  /** Signal v2 opts into the shared 0..100 row. Every other preset keeps its original formatting. */
+  private displayMode(): DisplayMode {
+    return this.settings.selectedPreset === "signal_v2" ? "normalized" : "raw";
+  }
+
   private render(slot: HTMLElement, r: AnalysisResult): void {
-    fillSlot(slot, verdicts(activeDimensions(this.settings), r.answers), r);
+    fillSlot(slot, verdicts(activeDimensions(this.settings), r.answers), r, this.displayMode());
   }
 
   private cacheKey(article: HTMLElement, id: string): string {
@@ -426,7 +433,7 @@ class App {
       existing.remove();
       return;
     }
-    const panel = renderSessionPanel(this.stats.snapshot(), PRESET_BY_ID[this.settings.selectedPreset]?.label ?? "Default");
+    const panel = renderSessionPanel(this.stats.snapshot(), PRESET_BY_ID[this.settings.selectedPreset]?.label ?? "Default", this.settings.selectedPreset);
     this.hud.root.appendChild(panel);
   }
 
@@ -440,6 +447,18 @@ class App {
   }
 }
 
+/** The non-categorical components as 0..1 means, for the Signal v2 session averages. */
+function observationsOf(vs: Verdict[]): Observation[] {
+  return vs
+    .filter((v) => v.type !== "choice")
+    .map((v) => ({ id: v.id, label: v.label, value: v.max > 0 ? Math.min(1, Math.max(0, v.value / v.max)) : 0 }));
+}
+
+/** The selected topic, when the preset asks a categorical question. */
+function topicOf(vs: Verdict[]): TopicObservation | undefined {
+  const topic = vs.find((v) => v.type === "choice");
+  return topic?.choice ? { id: topic.choice.id, label: topic.choice.label } : undefined;
+}
 function openOptions(): void {
   chrome.runtime.sendMessage({ type: "openOptions" }).catch(() => {});
 }

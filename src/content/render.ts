@@ -1,11 +1,17 @@
 import type { AnalysisResult, Verdict } from "../shared/types.ts";
 import { SEL } from "./selectors.ts";
-import { formatValue } from "./labels.ts";
+import { formatValue, normalized, rawDetail } from "./labels.ts";
 
 export const SLOT_CLASS = "xs-slot";
 export type SlotState = "idle" | "queued" | "inflight" | "done" | "error" | "skipped" | "filtered";
 
-const data = new WeakMap<HTMLElement, { vs: Verdict[]; r: AnalysisResult }>();
+/**
+ * "raw" is the original per-preset formatting. "normalized" is the shared 0..100 view that Signal v2
+ * opts into, where a score is scaled by its rubric maximum and a noul is already a probability.
+ */
+export type DisplayMode = "raw" | "normalized";
+
+const data = new WeakMap<HTMLElement, { vs: Verdict[]; r: AnalysisResult; mode: DisplayMode }>();
 let openDetail: HTMLElement | null = null;
 
 /**
@@ -65,11 +71,16 @@ export function markSlot(slot: HTMLElement, state: SlotState, title?: string): v
  * Fill the line: a verdict first (orange flags, or a green check), then every dimension's value in
  * X's secondary gray, flagged ones repeated in orange so the eye lands on them. Then fade in.
  */
-export function fillSlot(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): void {
+export function fillSlot(slot: HTMLElement, vs: Verdict[], r: AnalysisResult, mode: DisplayMode = "raw"): void {
+  if (mode === "normalized") {
+    fillCompact(slot, vs, r);
+    return;
+  }
+  slot.dataset.display = "raw";
   slot.textContent = "";
   slot.dataset.state = "done";
   slot.title = "";
-  data.set(slot, { vs, r });
+  data.set(slot, { vs, r, mode });
   const hits = vs.filter((v) => v.show);
   const rest = vs.filter((v) => !v.show);
   slot.dataset.verdict = hits.length ? "flag" : "clean";
@@ -111,6 +122,51 @@ export function fillSlot(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): v
   requestAnimationFrame(() => slot.classList.add("xs-in"));
 }
 
+/**
+ * The Signal v2 row: what the post is about, then the four signal components, then the two filters,
+ * kept in dimension order so the row reads the same way every time. Values carry no unit on purpose:
+ * a rubric level and a probability share this range without meaning the same thing. The detail card
+ * is where the raw semantics live. The flag marker still marks whatever crossed a threshold, which
+ * in Signal v2 is normally only the two filters.
+ */
+function fillCompact(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): void {
+  slot.textContent = "";
+  slot.dataset.state = "done";
+  slot.title = "";
+  slot.dataset.display = "normalized";
+  data.set(slot, { vs, r, mode: "normalized" });
+  const hits = vs.filter((v) => v.show);
+  slot.dataset.verdict = hits.length ? "flag" : "clean";
+  const tint = hits.find((v) => v.color)?.color;
+  if (tint) slot.style.setProperty("--xs-flag", tint);
+  else slot.style.removeProperty("--xs-flag");
+  const parts: HTMLElement[] = [];
+  if (hits.length === 0) parts.push(span("xs-ok", "✓ clean"));
+  for (const v of vs) {
+    if (v.type === "choice") {
+      if (v.choice) parts.push(span("xs-topic", v.choice.label));
+      continue;
+    }
+    const el = span(v.show ? "xs-flag" : "xs-dim", (v.show && v === hits[0] ? "⚑ " : "") + v.short + " " + normalized(v));
+    el.dataset.dim = v.id;
+    if (v.show && v.color) el.style.color = v.color;
+    parts.push(el);
+  }
+  parts.forEach((el, i) => {
+    if (i > 0) slot.appendChild(span("xs-sep", "·"));
+    slot.appendChild(el);
+  });
+  slot.classList.remove("xs-in");
+  requestAnimationFrame(() => slot.classList.add("xs-in"));
+}
+
+function span(cls: string, text: string): HTMLElement {
+  const el = document.createElement("span");
+  el.className = cls;
+  el.textContent = text;
+  return el;
+}
+
 /** One document level listener: click a slot to toggle its detail card, click anywhere else to close. */
 export function installDetailHandler(): void {
   document.addEventListener(
@@ -133,7 +189,7 @@ export function installDetailHandler(): void {
       if (!d) return;
       const already = slot.querySelector(".xs-detail");
       closeDetail();
-      if (!already) openDetailFor(slot, d.vs, d.r);
+      if (!already) openDetailFor(slot, d.vs, d.r, d.mode);
     },
     true,
   );
@@ -144,10 +200,15 @@ function closeDetail(): void {
   openDetail = null;
 }
 
-function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): void {
+function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult, mode: DisplayMode): void {
   const card = document.createElement("div");
   card.className = "xs-detail";
+  card.dataset.display = mode;
   for (const v of vs) {
+    if (v.type === "choice") {
+      card.appendChild(choiceRow(v));
+      continue;
+    }
     const row = document.createElement("div");
     row.className = "xs-detail-row" + (v.show ? " xs-hit" : "");
     if (v.show && v.color) row.style.setProperty("--xs-flag", v.color);
@@ -157,13 +218,16 @@ function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): voi
     const bar = document.createElement("span");
     bar.className = "xs-detail-bar";
     const fill = document.createElement("i");
-    fill.style.width = `${Math.round((Math.max(0, Math.min(v.max, v.value)) / v.max) * 100)}%`;
+    const width = mode === "normalized" ? normalized(v) : Math.round((Math.max(0, Math.min(v.max, v.value)) / v.max) * 100);
+    fill.style.width = width + "%";
     bar.appendChild(fill);
     const val = document.createElement("span");
     val.className = "xs-detail-v";
-    val.textContent = formatValue(v);
+    val.textContent = mode === "normalized" ? normalized(v) + " / 100" : formatValue(v);
     row.append(k, bar, val);
     card.appendChild(row);
+    // One range, two meanings: the normalized number stays directly above its raw semantics.
+    if (mode === "normalized") card.appendChild(span("xs-detail-raw", rawDetail(v)));
   }
   const foot = document.createElement("div");
   foot.className = "xs-detail-foot";
@@ -171,6 +235,20 @@ function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): voi
   card.appendChild(foot);
   slot.appendChild(card);
   openDetail = card;
+}
+
+/** A categorical row: the chosen label, then the candidate distribution when Jev returned one. */
+function choiceRow(v: Verdict): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "xs-detail-choice";
+  const row = document.createElement("div");
+  row.className = "xs-detail-choice-row";
+  row.append(span("xs-detail-k", v.label), span("xs-detail-choice-v", v.choice?.label ?? ""));
+  wrap.appendChild(row);
+  for (const c of v.choice?.candidates ?? []) {
+    wrap.appendChild(span("xs-detail-cand", c.label + " " + Math.round(c.p * 100) + "%"));
+  }
+  return wrap;
 }
 
 /** One manual article action. Nothing is fetched or billed until the reader clicks one of these. */

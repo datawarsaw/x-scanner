@@ -1,4 +1,4 @@
-import type { Dimension, Preset, PresetId, Settings, ThreadContextMode } from "./types.ts";
+import type { ChoiceOption, Dimension, Preset, PresetId, Settings, ThreadContextMode } from "./types.ts";
 import { DEFAULT_DIMENSIONS } from "./questions.ts";
 
 function fromDefault(id: string): Dimension {
@@ -55,6 +55,124 @@ const SIGNAL_DIMENSIONS: Dimension[] = [
   },
   fromDefault("promotion"),
   fromDefault("engagement_bait"),
+];
+
+/**
+ * Signal v2 topic taxonomy. The ids are what Jev sees and returns; the labels are what the reader
+ * sees. Topic is descriptive and is never part of a quality judgment.
+ */
+export const SIGNAL_V2_TOPICS: ChoiceOption[] = [
+  { id: "ai", label: "AI", description: "Models, LLMs, agents, machine learning, inference, training, AI research, and AI products where AI itself is the substantive topic." },
+  { id: "data_bi", label: "Data / BI", description: "Analytics, business intelligence, Power BI, dashboards, SQL, metrics, reporting, data engineering and analytical workflows." },
+  { id: "software_engineering", label: "Software Engineering", description: "Programming, architecture, frameworks, libraries, developer tooling, infrastructure, APIs, testing, deployment and implementation." },
+  { id: "business_strategy", label: "Business / Strategy", description: "Management, company strategy, operations, markets, business models, commercial strategy and organizational decisions." },
+  { id: "tech_industry", label: "Tech Industry", description: "Technology companies, launches, ecosystems, acquisitions, industry developments and product news where the focus is the industry rather than implementation." },
+  { id: "productivity_tools", label: "Productivity / Tools", description: "Workflows, apps, work methods, general tools, personal productivity and knowledge-work practices." },
+  { id: "science", label: "Science", description: "Scientific research and findings not primarily belonging to AI/software." },
+  { id: "politics_society", label: "Politics / Society", description: "Government, public policy, elections, institutions and social issues." },
+  { id: "personal_lifestyle", label: "Personal / Lifestyle", description: "Personal updates, lifestyle, entertainment and everyday-life content." },
+  { id: "other", label: "Other", description: "None of the above is a good primary classification." },
+];
+
+/**
+ * v0.6.0 Signal v2: what a post is about, how much useful signal it carries, and whether it is
+ * pushing something or fishing for engagement. Topic is categorical and the four signal components
+ * are separate ordered rubrics; there is deliberately no aggregate score. Thresholds follow the
+ * convention the other presets already use (2.5 of 3 for a score, 0.75 for a noul), so a merely
+ * good post does not turn orange and normally only the two filters do.
+ */
+const SIGNAL_V2_DIMENSIONS: Dimension[] = [
+  {
+    id: "topic",
+    label: "topic",
+    type: "choice",
+    instructions:
+      "What is the primary subject of this post? Choose the category that best represents the main substantive topic, not a passing mention.",
+    options: SIGNAL_V2_TOPICS,
+    threshold: 0,
+    direction: "above",
+    enabled: true,
+  },
+  {
+    id: "information_density",
+    label: "information density",
+    short: "density",
+    type: "score",
+    instructions: "How much specific, useful and checkable information does this text contain relative to its length?",
+    levels: [
+      "Almost no substantive information; mainly reaction, mood, slogan, generic statement or unsupported assertion",
+      "Contains one useful concrete detail, example, number, fact or instruction, but most of the post remains general",
+      "Contains several substantive details, concrete claims, examples, numbers, sources or useful steps",
+      "High information density; most of the text contributes specific, useful or checkable information",
+    ],
+    threshold: 2.5,
+    direction: "above",
+    enabled: true,
+  },
+  {
+    id: "original_insight",
+    label: "original insight",
+    short: "insight",
+    type: "score",
+    instructions: "How much original interpretation, reasoning, synthesis or non-obvious insight does the author add?",
+    levels: [
+      "No meaningful original insight; repetition, simple reaction or obvious restatement",
+      "A small amount of interpretation or personal framing, but little new reasoning",
+      "Adds a meaningful argument, interpretation, connection or useful synthesis",
+      "Provides a strong non-obvious insight, original reasoning or genuinely useful synthesis",
+    ],
+    threshold: 2.5,
+    direction: "above",
+    enabled: true,
+  },
+  {
+    id: "evidence",
+    label: "evidence",
+    type: "score",
+    instructions:
+      "How well are the post's substantive claims grounded in evidence available in the text or clearly referenced by it?",
+    levels: [
+      "Substantive claims are asserted without evidence, examples, sources, demonstrations or verifiable support",
+      "Some support is present, but it is vague, weak or incomplete",
+      "Claims are supported by useful examples, data, citations, links, benchmarks, demonstrations or other concrete evidence",
+      "Strong grounding; important claims are backed by concrete evidence, primary sources, reproducible examples, measurements or clear demonstrations",
+    ],
+    threshold: 2.5,
+    direction: "above",
+    enabled: true,
+  },
+  {
+    id: "actionable",
+    label: "actionable",
+    type: "score",
+    instructions:
+      "How directly can a reader use this information to make a decision, learn something practical, try something or change what they do?",
+    levels: [
+      "No practical takeaway or usable implication",
+      "Some potential relevance, but the reader must infer most of the practical value",
+      "Contains a clear useful takeaway, method, example, recommendation or decision-relevant implication",
+      "Immediately useful; provides concrete steps, technique, decision guidance or knowledge that can directly change what the reader does",
+    ],
+    threshold: 2.5,
+    direction: "above",
+    enabled: true,
+  },
+  {
+    id: "promotion",
+    label: "promo",
+    short: "promo",
+    type: "noul",
+    instructions:
+      "Is the post substantially pushing a product, service, course, newsletter, paid community, subscription or other commercial offer?",
+    criteria: {
+      true: "The post works to move the reader toward something the author or a sponsor offers: buy, subscribe, join, book a call, or pre-order. Intent matters: a product mention or a useful link on its own is not a pitch",
+      false: "No offer is being pushed; product mentions and links are incidental to the point of the post",
+    },
+    threshold: 0.75,
+    direction: "above",
+    enabled: true,
+  },
+  { ...fromDefault("engagement_bait"), short: "bait" },
 ];
 
 const AI_TECH_DIMENSIONS: Dimension[] = [
@@ -249,9 +367,18 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "signal",
-    label: "Signal",
+    label: "Signal (legacy)",
     description: "Useful vs noisy posts: density, action, originality, evidence, promo, bait.",
     dimensions: SIGNAL_DIMENSIONS,
+    contentType: "post",
+    context: "parent",
+    version: 1,
+  },
+  {
+    id: "signal_v2",
+    label: "Signal v2",
+    description: "Topic + useful-signal classification. Experimental.",
+    dimensions: SIGNAL_V2_DIMENSIONS,
     contentType: "post",
     context: "parent",
     version: 1,
@@ -279,7 +406,7 @@ export const PRESETS: Preset[] = [
 export const PRESET_BY_ID: Record<PresetId, Preset> = Object.fromEntries(PRESETS.map((p) => [p.id, p])) as Record<PresetId, Preset>;
 
 export function isPresetId(v: unknown): v is PresetId {
-  return v === "default" || v === "signal" || v === "ai_tech" || v === "article";
+  return v === "default" || v === "signal" || v === "signal_v2" || v === "ai_tech" || v === "article";
 }
 
 /** Dimensions actually sent to Jev for the current HUD preset. */
@@ -292,4 +419,3 @@ export function contextModeFor(settings: Settings): ThreadContextMode {
   if (settings.threadContextMode !== "quoted") return settings.threadContextMode;
   return PRESET_BY_ID[settings.selectedPreset]?.context ?? "quoted";
 }
-

@@ -12,7 +12,7 @@ API and shows the answers next to the post. It has no server of its own and no a
   post is sent: no author name, handle, post id, media, or engagement numbers.
 - **Replies and comments stay behind by default.** Posts X marks as replies are not sent anywhere at all
   unless you turn on Analyze replies/comments in settings.
-- **Thread context, when the preset asks for it.** On a post's own page, the Signal and AI / Tech presets
+- **Thread context, when the preset asks for it.** On a post's own page, the Signal v2, Signal and AI / Tech presets
   also send the quoted post, the direct parent post, and up to two preceding posts, so a reply can be
   judged against what it answers. The Default preset sends the quoted post only, exactly as before.
 - **Article text, only when you ask.** Pressing *Analyze article* on a linked post fetches that page,

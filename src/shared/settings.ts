@@ -1,6 +1,7 @@
-import type { Dimension, LifetimeStats, Settings } from "./types.ts";
+import type { ChoiceOption, Dimension, LifetimeStats, Settings } from "./types.ts";
 import { ADDED_IN_VERSION, DEFAULT_DIMENSIONS } from "./questions.ts";
 import { DEFAULT_BASE_URL, DEFAULT_MODEL, DEFAULT_PRICE_PER_MTOK } from "./jev.ts";
+import { isPresetId } from "./presets.ts";
 
 export const SETTINGS_KEY = "settings";
 export const STATS_KEY = "stats";
@@ -62,7 +63,8 @@ export function normalizeSettings(raw: unknown): Settings {
     concurrency: clamp(Number(r.concurrency), 1, 32, DEFAULT_SETTINGS.concurrency),
     cacheMax: clamp(Number(r.cacheMax), 100, 100000, DEFAULT_SETTINGS.cacheMax),
     dimensions: dims,
-    selectedPreset: r.selectedPreset === "signal" || r.selectedPreset === "ai_tech" || r.selectedPreset === "article" ? r.selectedPreset : "default",
+    // Whitelisted by the preset table, so a new preset is accepted without editing this line.
+    selectedPreset: isPresetId(r.selectedPreset) ? r.selectedPreset : "default",
     articleAnalysisEnabled: typeof r.articleAnalysisEnabled === "boolean" ? r.articleAnalysisEnabled : true,
     threadContextMode: r.threadContextMode === "off" || r.threadContextMode === "parent" || r.threadContextMode === "thread" ? r.threadContextMode : "quoted",
     maxArticleChars: clamp(Number(r.maxArticleChars), 1000, 40000, DEFAULT_SETTINGS.maxArticleChars),
@@ -87,7 +89,7 @@ function migrateLabel(d: Dimension, version: number): Dimension {
 }
 
 function normalizeDimension(d: Partial<Dimension>): Dimension {
-  const type = d.type === "noul" ? "noul" : "score";
+  const type = d.type === "noul" ? "noul" : d.type === "choice" ? "choice" : "score";
   return {
     id: String(d.id ?? "").trim(),
     label: String(d.label ?? "").trim(),
@@ -95,11 +97,22 @@ function normalizeDimension(d: Partial<Dimension>): Dimension {
     instructions: String(d.instructions ?? ""),
     levels: type === "score" ? (Array.isArray(d.levels) ? d.levels.map(String) : []) : undefined,
     criteria: type === "noul" ? { true: String(d.criteria?.true ?? ""), false: String(d.criteria?.false ?? "") } : undefined,
-    threshold: finiteOr(d.threshold, type === "noul" ? 0.75 : 1),
+    // A stored choice dimension keeps its options rather than being flattened into a score.
+    options: type === "choice" ? normalizeOptions(d.options) : undefined,
+    short: typeof d.short === "string" && d.short.trim() ? d.short.trim() : undefined,
+    threshold: finiteOr(d.threshold, type === "noul" ? 0.75 : type === "choice" ? 0 : 1),
     direction: d.direction === "below" ? "below" : "above",
     enabled: d.enabled !== false,
     color: typeof d.color === "string" && /^#[0-9a-f]{6}$/i.test(d.color) ? d.color.toLowerCase() : undefined,
   };
+}
+
+function normalizeOptions(raw: unknown): ChoiceOption[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((o) => {
+    const r = (o && typeof o === "object" ? o : {}) as Partial<ChoiceOption>;
+    return { id: String(r.id ?? "").trim(), label: String(r.label ?? "").trim(), description: String(r.description ?? "").trim() };
+  });
 }
 
 function finiteOr(v: unknown, fallback: number): number {

@@ -1,4 +1,12 @@
-export type QuestionType = "score" | "noul";
+export type QuestionType = "score" | "noul" | "choice";
+
+/** One option of a choice question. The id is the stable key sent to Jev and echoed back in `choice`. */
+export interface ChoiceOption {
+  id: string;
+  label: string;
+  /** Concise criterion Jev uses to place the text in this bucket. */
+  description: string;
+}
 
 /** One analysis dimension. Becomes one typed Jev question and, when it crosses its threshold, one pill. */
 export interface Dimension {
@@ -12,6 +20,10 @@ export interface Dimension {
   levels?: string[];
   /** Noul only: what a yes and a no mean. */
   criteria?: { true: string; false: string };
+  /** Choice only: the options, in presentation order. Never empty for a usable choice dimension. */
+  options?: ChoiceOption[];
+  /** Compact name for the timeline row, e.g. "density" for "information density". Defaults to `label`. */
+  short?: string;
   /** Noul: 0..1 probability. Score: 0..levels.length-1, may be fractional. */
   threshold: number;
   /** Show the pill when the value is above (>=) or below (<=) the threshold. */
@@ -58,7 +70,7 @@ export interface Settings {
   version: number;
 }
 
-export type PresetId = "default" | "signal" | "ai_tech" | "article";
+export type PresetId = "default" | "signal" | "signal_v2" | "ai_tech" | "article";
 export type ThreadContextMode = "off" | "quoted" | "parent" | "thread";
 
 export interface Preset {
@@ -138,7 +150,8 @@ export type Answer = NoulAnswer | ScoreAnswer | ChoiceAnswer;
 export interface JevQuestion {
   type: QuestionType;
   instructions: string;
-  criteria?: string[] | { true: string; false: string };
+  /** Score: an ordered level list. Noul: what true and false mean. Choice: option id to criterion. */
+  criteria?: string[] | { true: string; false: string } | Record<string, string>;
 }
 
 export interface JevRequest {
@@ -177,6 +190,8 @@ export interface AnalysisResult {
 export interface Verdict {
   id: string;
   label: string;
+  /** Compact label for the timeline row. Equals `label` unless the dimension names a shorter one. */
+  short: string;
   type: QuestionType;
   value: number;
   max: number;
@@ -184,6 +199,18 @@ export interface Verdict {
   direction: "above" | "below";
   show: boolean;
   color?: string;
+  /** Choice only: the selected option and its distribution. Absent for score and noul. */
+  choice?: ChoiceVerdict;
+}
+
+/** A choice answer, resolved against the dimension's own options. */
+export interface ChoiceVerdict {
+  /** The option id Jev returned, which may be one the dimension does not declare. */
+  id: string;
+  /** Human label for `id`, or `id` itself when the option is unknown. */
+  label: string;
+  /** Declared options with a probability, highest first. */
+  candidates: { id: string; label: string; p: number }[];
 }
 
 /** Messages between the content script and the service worker. */
