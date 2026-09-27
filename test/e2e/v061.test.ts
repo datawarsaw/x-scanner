@@ -134,6 +134,10 @@ test("options -> save -> runtime: the preset the reader saved decides what the n
 
   // A fresh timeline page then asks the questions of the saved preset, and only those.
   const { page, errors } = await openTimeline(ctx, base, "normalized");
+  await page.waitForFunction((p) => {
+    const art = Array.from(document.querySelectorAll("article")).find((a) => (a.textContent || "").includes(p));
+    return art?.querySelector(".xs-slot")?.getAttribute("data-state") === "done";
+  }, POST);
   const asked = server.requests.find((r) => r.text.startsWith(POST));
   assert.ok(asked, "the post was analyzed");
   assert.deepEqual(asked!.questionIds, V2_IDS, "the request carries exactly the Signal v2 schema");
@@ -263,7 +267,7 @@ test("guard: a preset with its own dimensions still runs when every editable dim
   const hud = await page.evaluate(() => ({
     message: document.querySelector(".xs-hud-msg")?.textContent ?? "",
     title: document.querySelector(".xs-hud-title")?.textContent ?? "",
-    chips: document.querySelectorAll('.xs-slot[data-state="done"] .xs-dim, .xs-slot[data-state="done"] .xs-flag').length,
+    chips: document.querySelectorAll('.xs-slot[data-state="done"] .xs-dim, .xs-slot[data-state="done"] .xs-flag, .xs-slot[data-state="done"] .xs-topic').length,
   }));
   assert.equal(/No dimensions enabled/.test(hud.message), false, hud.message);
   assert.match(hud.title, /Signal v2/);

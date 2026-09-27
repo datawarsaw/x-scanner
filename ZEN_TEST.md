@@ -41,13 +41,13 @@ running instance has the new code, and About:debugging will happily show the old
 continue into reply testing until these three values are right.
 
 1. Open x-scanner settings and scroll to the About section.
-2. Confirm it reads Version: 0.6.1
+2. Confirm it reads Version: 0.6.2
 3. Confirm Build: shows the short sha of the commit you built (the build prints it, for example "build fad243e"). If
    it reads unknown, the artifact was built outside a git checkout.
 4. Confirm Browser target: Firefox
 5. Confirm Analyze replies/comments is unchecked and its Current value line says OFF.
 6. If any of these disagree, remove and re-add the temporary add-on from dist-firefox/manifest.json, then check again.
-7. The HUD in the corner repeats the same identity quietly as v0.6.1 · <sha>, so you can confirm it on x.com itself
+7. The HUD in the corner repeats the same identity quietly as v0.6.2 · <sha> · <preset>, so you can confirm it on x.com itself
    without opening about:debugging.
 
 ## 3. Settings
@@ -64,14 +64,18 @@ Never paste a real key into docs, tickets, screenshots, or chat.
 
 1. Confirm the preset selector lists Default, Signal (legacy), Signal v2, AI / Tech and Article, and that Default is selected.
 2. On x.com, note the chips under a few posts with Default.
-3. Switch to Signal, save, reload x.com, and scroll. The chips should now show Signal dimensions (informative, actionable,
-   original, evidence, promo, engagement bait) instead of the Default ones.
-4. Confirm the HUD title shows the active preset name.
-5. Switch back to Default and confirm the original chips return.
+3. Switch to Signal (or Signal v2) in Settings and save. Do NOT reload x.com: the HUD title and version line immediately
+   switch to the new preset, and newly analyzed posts immediately show the new preset's row/dimensions.
+4. Confirm the HUD title and version line show the active preset name (e.g. v0.6.2 · <sha> · Signal v2).
+5. Switch back to Default in Settings and save without reloading x.com. Confirm the HUD immediately returns to Default
+   and cached Default chips return.
 
-Switching to a preset for the first time re-asks the posts on screen, because the cache is keyed by preset. Switching back
-to a preset that has already answered those posts reuses its own answers: no preset is billed twice, and returning to
-Default restores Default's cached chips without a new call.
+Switching presets within the same running build does not require a page reload. Rebuilding/reloading the temporary add-on
+itself in about:debugging still requires a one-time reload of the X page so the fresh content script is injected.
+
+Switching to a preset for the first time asks the new schema on scroll, because the cache is keyed by preset. Switching back
+to a preset that has already answered those posts reuses its own answers: no preset is billed twice, and returning to Default
+restores Default's cached chips without a new call.
 
 ## 5. Articles
 
@@ -182,7 +186,7 @@ Analyze replies/comments is off by default. This is the check that the filter is
 
 Do step 2.1 first, with these three values on screen before anything below means anything:
 
-    Version: 0.6.1
+    Version: 0.6.2
     Build: <the sha printed by the build you loaded>
     Analyze replies/comments: OFF
 
@@ -241,7 +245,7 @@ Zen exits.
 The experimental preset added in v0.6.0. It separates what a post is about, how much useful signal it
 carries, and whether it is pushing something or fishing for engagement.
 
-1. Reload the final Firefox artifact and re-check section 2.1: Version must read 0.6.1 and Build must be the
+1. Reload the final Firefox artifact and re-check section 2.1: Version must read 0.6.2 and Build must be the
    sha of the commit you built.
 2. Select Signal v2 in the preset list, save, and confirm the HUD title names it.
 3. Open several real posts that differ in kind: a technical write-up, an analytics or BI post, a company or

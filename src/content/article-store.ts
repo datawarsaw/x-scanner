@@ -22,6 +22,16 @@ export class ArticleStore {
     return this.cache.size;
   }
 
+  setQuestionsHash(questionsHash: string): void {
+    if (this.questionsHash === questionsHash) return;
+    this.questionsHash = questionsHash;
+    void this.load();
+  }
+
+  setMax(max: number): void {
+    this.cache.max = max;
+  }
+
   async load(): Promise<void> {
     try {
       const got = await chrome.storage.local.get(ARTICLE_CACHE_KEY);
@@ -50,11 +60,15 @@ export class ArticleStore {
 
   private scheduleSave(): void {
     if (this.saveTimer !== null) return;
-    this.saveTimer = window.setTimeout(() => {
+    this.saveTimer = (globalThis.setTimeout ?? setTimeout)(() => {
       this.saveTimer = null;
       const payload: Persisted = { questionsHash: this.questionsHash, entries: this.cache.entries() };
-      chrome.storage.local.set({ [ARTICLE_CACHE_KEY]: payload }).catch(() => {});
-    }, 1000);
+      try {
+        chrome.storage?.local?.set({ [ARTICLE_CACHE_KEY]: payload })?.catch?.(() => {});
+      } catch {
+        /* storage unavailable */
+      }
+    }, 1000) as unknown as number;
   }
 }
 

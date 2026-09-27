@@ -67,6 +67,17 @@ export function markSlot(slot: HTMLElement, state: SlotState, title?: string): v
   }
 }
 
+export function clearSlot(slot: HTMLElement): void {
+  slot.textContent = "";
+  slot.dataset.state = "idle";
+  delete slot.dataset.verdict;
+  delete slot.dataset.display;
+  slot.title = "";
+  slot.style.removeProperty("--xs-flag");
+  slot.classList.remove("xs-in");
+  data.delete(slot);
+}
+
 /**
  * Fill the line: a verdict first (orange flags, or a green check), then every dimension's value in
  * X's secondary gray, flagged ones repeated in orange so the eye lands on them. Then fade in.
@@ -195,7 +206,7 @@ export function installDetailHandler(): void {
   );
 }
 
-function closeDetail(): void {
+export function closeDetail(): void {
   openDetail?.remove();
   openDetail = null;
 }

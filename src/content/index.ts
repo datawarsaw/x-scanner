@@ -9,7 +9,7 @@ import { Scheduler } from "./queue.ts";
 import { ResultStore } from "./store.ts";
 import { SessionStats, type Observation, type TopicObservation } from "./stats.ts";
 import { Hud } from "./hud.ts";
-import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot, ensureArticleAction, fillArticleResult, type ArticleAction, type DisplayMode } from "./render.ts";
+import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot, clearSlot, closeDetail, ensureArticleAction, fillArticleResult, type ArticleAction, type DisplayMode } from "./render.ts";
 import { scoreRatio, verdicts } from "./labels.ts";
 import { ArticleStore } from "./article-store.ts";
 import { renderSessionPanel } from "./session-panel.ts";
@@ -83,6 +83,92 @@ class App {
     this.scheduler.clear();
     this.hud.destroy();
     document.querySelector(".xs-session")?.remove();
+    for (const slot of this.slots.values()) {
+      clearSlot(slot);
+    }
+    this.slots.clear();
+  }
+
+  /**
+   * Live settings refresh: recompute active preset/schema, update cache namespaces,
+   * refresh HUD identity, and update rendered slot presentation without page reload.
+   */
+  updateSettings(next: Settings): void {
+    if (this.stopped) return;
+
+    const prevSettings = this.settings;
+    const prevQhash = this.qhash;
+
+    this.settings = next;
+    this.qhash = questionsHash(activeDimensions(next), next.model);
+
+    // 1. Update cache namespaces and capacities
+    this.store.setQuestionsHash(this.qhash);
+    this.store.setMax(next.cacheMax);
+    this.articles.setQuestionsHash(questionsHash(PRESET_BY_ID.article.dimensions, next.model));
+    this.articles.setMax(next.articleCacheMax);
+
+    // 2. Scheduler concurrency
+    if (next.concurrency !== prevSettings.concurrency) {
+      this.scheduler.setConcurrency(next.concurrency);
+    }
+
+    // 3. Watcher options
+    this.watcher?.updateOptions(next.dwellMs, next.lookaheadPx);
+
+    // 4. HUD identity
+    const presetLabel = PRESET_BY_ID[next.selectedPreset]?.label ?? "Default";
+    this.hud.setPreset(presetLabel);
+
+    // 5. Active dimensions and API key guards
+    if (!next.apiKey) {
+      this.hud.message(`Add your TypeSafe API key in ${SETTINGS_LINK}`);
+      return;
+    }
+    if (Object.keys(activeQuestions(next)).length === 0) {
+      this.hud.message(`No dimensions enabled · ${SETTINGS_LINK}`);
+      return;
+    }
+    this.hud.message(null);
+
+    // 6. Existing DOM / rendered posts
+    closeDetail();
+    if (prevQhash !== this.qhash) {
+      const renderedSlots = Array.from(document.querySelectorAll<HTMLElement>(".xs-slot"));
+      for (const slot of renderedSlots) {
+        const id = slot.dataset.tweetId;
+        if (!id) continue;
+        this.slots.set(id, slot);
+        const article = slot.closest("article") as HTMLElement | null;
+        if (!article) continue;
+        const key = article ? this.cacheKey(article, id) : id;
+        const cached = this.store.get(key);
+        if (cached) {
+          this.render(slot, cached);
+        } else {
+          clearSlot(slot);
+          if (this.watcher && !this.pausedReason()) {
+            this.watcher.recheck(article);
+          }
+        }
+      }
+    } else if (prevSettings.analyzeReplies !== next.analyzeReplies) {
+      for (const [id, slot] of this.slots.entries()) {
+        if (!slot.isConnected) continue;
+        const article = slot.closest("article") as HTMLElement | null;
+        if (!article) continue;
+        const filtered = !this.filterInto(slot, id, isReply(article));
+        if (!filtered && slot.dataset.state === "filtered") {
+          clearSlot(slot);
+          if (this.watcher && !this.pausedReason()) {
+            this.watcher.recheck(article);
+          }
+        }
+      }
+    }
+
+    // 7. Route and scope evaluation
+    this.evaluateRoute();
   }
 
   /** X is a single page app: the path and the account can change without a reload. */
@@ -466,11 +552,18 @@ function openOptions(): void {
 let app: App | null = null;
 
 function apply(settings: Settings): void {
-  app?.destroy();
-  app = null;
-  if (!settings.enabled) return;
-  app = new App(settings);
-  void app.start();
+  if (!app) {
+    if (!settings.enabled) return;
+    app = new App(settings);
+    void app.start();
+    return;
+  }
+  if (!settings.enabled) {
+    app.destroy();
+    app = null;
+    return;
+  }
+  app.updateSettings(settings);
 }
 
 async function boot(): Promise<void> {

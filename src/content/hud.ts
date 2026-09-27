@@ -107,6 +107,8 @@ export class Hud {
   setPreset(label: string): void {
     const em = this.root.querySelector(".xs-hud-preset");
     if (em) em.textContent = label ? `· ${label}` : "";
+    const ver = this.root.querySelector(".xs-hud-ver");
+    if (ver) ver.textContent = versionLabel(chrome.runtime.getManifest().version, label || "Default");
   }
 
   private toggle(): void {

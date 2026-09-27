@@ -49,3 +49,8 @@ test("the quiet HUD label names the version and the build", () => {
   assert.match(versionLabel("0.5.2"), /^v0\.5\.2 \u00b7 ([0-9a-f]{7,40}|unknown)$/);
 });
 
+test("the quiet HUD label includes the active preset when provided", () => {
+  assert.equal(versionLabel("0.6.2", "Signal v2"), "v0.6.2 \u00b7 " + BUILD_SHA + " \u00b7 Signal v2");
+  assert.match(versionLabel("0.6.2", "Signal v2"), /^v0\.6\.2 \u00b7 ([0-9a-f]{7,40}|unknown) \u00b7 Signal v2$/);
+});
+

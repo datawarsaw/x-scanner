@@ -53,6 +53,40 @@ export class TweetWatcher {
     this.timers.clear();
   }
 
+  updateOptions(dwellMs: number, lookaheadPx?: number): void {
+    this.opts.dwellMs = dwellMs;
+    if (lookaheadPx !== undefined && this.opts.lookaheadPx !== lookaheadPx) {
+      this.opts.lookaheadPx = lookaheadPx;
+      this.io.disconnect();
+      this.io = new IntersectionObserver((entries) => this.onIntersect(entries), {
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+        rootMargin: `0px 0px ${Math.max(0, lookaheadPx)}px 0px`,
+      });
+      for (const a of Array.from(document.querySelectorAll<HTMLElement>(SEL.article))) {
+        this.io.observe(a);
+      }
+    }
+  }
+
+  recheck(article: HTMLElement): void {
+    if (!article.isConnected) return;
+    this.clearTimer(article);
+    const rect = article.getBoundingClientRect();
+    const lookahead = Math.max(0, this.opts.lookaheadPx ?? 0);
+    const inView = rect.bottom >= 0 && rect.top <= (window.innerHeight || 900) + lookahead;
+    if (inView) {
+      if (this.opts.dwellMs <= 0) {
+        this.opts.onDwell(article);
+      } else {
+        const t = window.setTimeout(() => {
+          this.timers.delete(article);
+          if (article.isConnected) this.opts.onDwell(article);
+        }, this.opts.dwellMs);
+        this.timers.set(article, t);
+      }
+    }
+  }
+
   private scan(node: Node): void {
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const el = node as Element;

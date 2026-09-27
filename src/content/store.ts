@@ -29,6 +29,14 @@ export class ResultStore {
     return this.cache.size;
   }
 
+  setQuestionsHash(questionsHash: string): void {
+    this.questionsHash = questionsHash;
+  }
+
+  setMax(max: number): void {
+    this.cache.max = max;
+  }
+
   /** Schema-qualified: no preset can ever read another preset's answer for the same post. */
   private key(id: string): string {
     return this.questionsHash + "|" + id;
@@ -72,10 +80,14 @@ export class ResultStore {
 
   private scheduleSave(): void {
     if (this.saveTimer !== null) return;
-    this.saveTimer = window.setTimeout(() => {
+    this.saveTimer = (globalThis.setTimeout ?? setTimeout)(() => {
       this.saveTimer = null;
       const payload: Persisted = { version: 2, questionsHash: this.questionsHash, entries: this.cache.entries() };
-      chrome.storage.local.set({ [CACHE_KEY]: payload }).catch(() => {});
-    }, 1000);
+      try {
+        chrome.storage?.local?.set({ [CACHE_KEY]: payload })?.catch?.(() => {});
+      } catch {
+        /* storage unavailable */
+      }
+    }, 1000) as unknown as number;
   }
 }

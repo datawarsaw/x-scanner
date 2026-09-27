@@ -19,7 +19,8 @@ export function browserTarget(manifest: BuildManifest): "Chromium" | "Firefox" {
 }
 
 /** Quiet one-line identity, e.g. "v0.5.3 · 8e2e65c". */
-export function versionLabel(version: string): string {
-  return "v" + version + " · " + BUILD_SHA;
+export function versionLabel(version: string, presetLabel?: string): string {
+  const base = "v" + version + " · " + BUILD_SHA;
+  return presetLabel ? base + " · " + presetLabel : base;
 }
 
