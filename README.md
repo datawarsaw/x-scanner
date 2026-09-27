@@ -1,282 +1,164 @@
 # x-scanner
 
-Behavioral labels on every post you scroll past on X, judged by [Jev](https://docs.typesafe.ai),
-TypeSafe's System One model, with a counter in the corner showing exactly what it cost.
+Browser extension for X that adds typed Jev judgments, Signal v2, article analysis and local session intelligence. Firefox/Zen and Chromium.
 
-https://github.com/user-attachments/assets/bd9782e9-cd8d-426b-8585-e3473a007d11
+x-scanner analyzes X posts in place using Jev, TypeSafe's System One model, and adds a compact metadata row under each post. You bring your own TypeSafe API key; the extension has no server, no analytics, and shows exactly what each session cost.
 
-Each post is sent to Jev with six typed questions in one request as soon as it comes within 800 px
-of the viewport. The answer comes back in about 150 ms as numbers, not prose, and lands in a chip
-under the post, usually before you have scrolled to it. Most posts
-come back clean. The ones that don't get an orange flag. Scroll for a minute and the panel reads
-something like 80 posts, $0.0027.
+## What it does
 
-## What v0.6 adds
-
-- **Signal v2.** An experimental preset that keeps three questions apart instead of blending them into
-  one number:
-
-  - **Topic** - what is this post about? One of ten categories, from AI and Data / BI to Politics /
-    Society and Other. Descriptive only, never a quality judgment.
-  - **Signal** - how much useful information does it carry? Four ordered rubrics scored 0 to 3:
-    information density, original insight, evidence, actionable.
-  - **Filters** - is it pushing something or fishing for engagement? Promo and engagement bait, each a
-    probability.
-
-  The row under a post leads with the topic and then puts all six components on one shared 0-100 range:
-  `✓ clean · AI · density 80 · insight 60 · evidence 70 · actionable 50 · promo 10 · bait 5`. Click it for
-  the detail card, which keeps the raw semantics under every value - `80 / 100` above `Raw score: 2.4 / 3`,
-  and `12 / 100` above `Probability true: 12%` - and lists the candidate topics when Jev returns a
-  distribution.
-
-  Three things are worth knowing about that range. A score's 0-100 is a normalized rubric level, not a
-  percentage. A noul's 0-100 is the probability that it is true. They share a display range and nothing
-  else. And there is no overall signal score: the components are shown separately, no weights are invented,
-  and session ranking names the one component it sorts by.
-
-  Signal v2 is not calibrated against a labelled set yet, so it stays experimental: it is never selected for
-  you, and Default keeps its questions and behavior exactly as they were.
-
-## What v0.5 adds
-
-- **Analysis presets.** Default (the original six questions), Signal, AI / Tech, and Article. Results are cached per
-  preset, so switching never reuses one preset's answers for another.
-- **Article analysis.** When a post links out, x-scanner offers an *Analyze article* action, and when X renders a
-  long-form article inside a post it offers *Analyze X article* next to it. Nothing is fetched or billed until you
-  click, the long-form body is read out of the page already on screen, and each result is cached on its own.
-- **Thread context.** On a post's own page, the Signal and AI / Tech presets can attach the quoted post, the direct
-  parent, or a couple of preceding posts, so a reply can be judged with what it answers.
-- **Session panel.** Click *session* in the HUD for posts analyzed, cache hits, cost, average latency, flagged counts,
-  useful vs noisy dimensions, and the top-scoring posts and articles. It costs no extra Jev calls.
-
-## Install
-
-Chrome 120 or newer, or Firefox / Zen for a development build. Until a store listing is live, install from source; Node 22 or newer is needed to build.
-
-```sh
-git clone https://github.com/oso95/x-scanner.git
-cd x-scanner
-npm install
-npm run build
-```
-
-1. Open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, choose the `dist-chromium/` folder.
-2. Click the x-scanner icon. Paste your TypeSafe API key, click **Test connection**, then **Save**.
-3. Open [x.com](https://x.com) and scroll: home, profiles, search, threads, lists.
-
-Firefox and Zen (development, unsigned):
-
-```sh
-npm run build:firefox
-```
-
-1. Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and choose `dist-firefox/manifest.json`. See `ZEN_TEST.md` for the full smoke-test checklist.
-2. Click the x-scanner icon. Paste your TypeSafe API key, click **Test connection**, then **Save**.
-3. Open [x.com](https://x.com) and scroll.
-
-Chromium uses a background service worker (`background.service_worker`). Firefox and Zen use an MV3 event-page background script (`background.scripts`) because Firefox does not run `background.service_worker` for this extension. Application code is shared; only the generated manifest differs. Builds land in `dist-chromium/` and `dist-firefox/`.
-
-Your key lives in this browser's extension storage and nowhere else. The only network traffic is the
-post text to `api.typesafe.ai`. No server, no analytics.
+As a post comes near the viewport it is sent to Jev with a set of typed questions in one request. The answer comes back as numbers, not prose, and lands in a small row under the post. Click the row for a detail card with every value, plus the token count, cost and latency of that call.
 
 ## What you see
 
-**Under each post**, a chip styled like X's own metadata line:
+**Under each post**, a row styled like X's own metadata line:
 
-- `✓ clean` in green when nothing crossed a threshold, followed by every value in gray.
+- `✓ clean` when nothing crossed a threshold, followed by the other values in gray.
 - `⚑ engagement bait 97%` in orange when something did, followed by the rest in gray.
-- `no text to analyze` or `promoted, not analyzed` in dashed gray for posts that are skipped.
-- Click the chip for a card with a bar per dimension, the token count, cost and latency of that call.
+- `no text to analyze` or `promoted, not analyzed` for posts that are skipped.
+- Click the row for a card with a bar per dimension, token count, cost and latency.
 
-**Bottom right**, a small panel: posts analyzed this session, dollars spent to four decimals, the last
-call's latency, and judgments per second. The dollar figure is exact, not estimated: Jev returns
-`usage.input_tokens` with every answer.
+**Bottom right**, a small panel: posts analyzed this session, dollars spent to four decimals, the last call's latency, and judgments per second. The dollar figure is exact, not estimated: Jev returns `usage.input_tokens` with every answer.
 
-## The six dimensions
+### Signal v2 row
 
-Five judge the text's behavior, one is a topic check. None judge the author. Every one is editable in
-settings.
+Signal v2 is an experimental preset that keeps three questions apart instead of blending them into one number:
 
-| label | type | question, in short | flags when |
-| --- | --- | --- | --- |
-| `fact-dense` | Score, 4 levels | how much specific, verifiable content the text has | ≥ 2.5 of 3 |
-| `engagement bait` | Noul | does it end by asking for replies, reposts, likes, follows, or bookmarks | ≥ 75% |
-| `promo` | Noul | is it pushing a product, course, newsletter, community, or paid offer | ≥ 75% |
-| `secondhand` | Noul | does it only relay someone else's view without adding its own argument | ≥ 75% |
-| `filler` | Score, 3 levels | how much of it is filler relative to the information it carries | ≥ 1.5 of 2 |
-| `jevpilled` | Noul | is the post about Jev or TypeSafe (not a person named Jev). Flags in red | ≥ 75% |
+- **Topic** — what the post is about. One of ten categories (AI, Data / BI, Software Engineering, Business / Strategy, Tech Industry, Productivity / Tools, Science, Politics / Society, Personal / Lifestyle, Other). Categorical and descriptive only, never a quality judgment.
+- **Signal** — how much useful information it carries. Four ordered rubrics scored 0 to 3: information density, original insight, evidence, actionable.
+- **Filters** — is it pushing something or fishing for engagement? Promo and engagement bait, each a probability.
 
-A Noul answer is Jev's probability that the answer is yes. A Score answer is a position on ordered
-levels you describe. `fact-dense`, the one positive label, uses these four:
+The row leads with the topic, then puts all six components on one shared 0-100 display range. Three things are worth knowing about that range: a score's 0-100 is a normalized rubric level, not a percentage; a noul's 0-100 is the probability that it is true; they share a display range and nothing else. **There is no overall Signal Score.** Components are shown separately, no weights are invented, and session ranking under Signal v2 names the one component it sorts by (information density).
 
-0. No specific claims; opinion, mood, or a generic statement with nothing that could be checked
-1. One concrete detail such as a number, name, date, or link; the rest is general
-2. Several specific, checkable details: numbers, named sources, dates, or steps
-3. Dense with specifics; most sentences carry a checkable fact or a concrete instruction
+## Firefox / Zen
 
-Thresholds, labels and direction are display policy. Change them and nothing is re-billed. Change a
-question's wording, its levels, or the model, and the result cache is dropped.
+Firefox and Zen run the `dist-firefox/` build. During development it loads as a temporary add-on from `about:debugging#/runtime/this-firefox`; that install disappears when the browser restarts. A signed unlisted build installs permanently and is covered in `docs/FIREFOX_SIGNING.md`. There is no public AMO listing yet; do not expect to find this extension in the store.
+
+Firefox uses an MV3 event-page background script (`background.scripts`) because Firefox does not run `background.service_worker` for this extension. Application code is shared with Chromium; only the generated manifest differs. The Firefox manifest carries a stable extension id (`x-scanner@whitegull.ai`), `strict_min_version` 128.0, and a `data_collection_permissions` declaration (see PRIVACY.md).
+
+## Chromium
+
+Chromium runs the `dist-chromium/` build with a background service worker. Load it unpacked from `chrome://extensions` with Developer mode on. It needs Chrome 120 or newer.
+
+## Three installation modes
+
+1. **Temporary development install** (`about:debugging#/runtime/this-firefox` then Load Temporary Add-on, choosing `dist-firefox/manifest.json`). Disappears after a browser restart. Good for development and smoke tests.
+2. **Signed unlisted install.** A build signed by Mozilla, distributed by the operator, not publicly listed. Permanent across restarts. See `docs/FIREFOX_SIGNING.md`. Not yet published.
+3. **Public AMO install.** Normal store installation with automatic updates. Planned for later; see `docs/AMO_PUBLIC_PATH.md`. Not yet available.
+
+After reloading a temporary add-on, **reload the X page** before testing: already-injected content scripts in an open tab are not guaranteed to be replaced by the reload, so stale code can otherwise look like a failed fix.
 
 ## Presets
 
-| preset | what it judges | context on a post page |
-| --- | --- | --- |
-| Default | the six dimensions above; user editable | quoted post only |
-| Signal v2 | topic, then information density, original insight, evidence, actionable, promo, bait | quoted post + direct parent |
-| Signal (legacy) | density, actionability, originality, evidence, promo, bait | quoted post + direct parent |
-| AI / Tech | technical depth, benchmark support, novelty, speculation, implementation use, hype | quoted post + a couple of preceding posts |
-| Article | density, evidence, sourcing, originality, depth, promo, speculation, action | linked pages and native X Articles |
-
-Five presets ship in v0.6. The non-Default presets are read-only, and their thresholds are first-pass
-defaults rather than values calibrated against a labelled set. Default keeps v0.1's questions and
-thresholds exactly, so an upgraded install behaves the same as before until you switch; Signal v2 is
-experimental and is never selected for you. Switching presets is free in both directions: each preset
-keeps its own cached answers, and none of them are billed twice.
-
-## Cost and speed
-
-Measured on 2026-09-18 with `jev-1.13.0` over the 18 sample posts in `test/fixture/samples.json`.
-`npm run calibrate` reproduces it for under a tenth of a cent.
-
-| | |
+| preset | what it judges |
 | --- | --- |
-| input tokens per post | 906 on average, about 720 of them the six questions themselves |
-| cost per post | $0.000038 |
-| cost per 1,000 posts | $0.038 |
-| latency per call | 174 ms on average, first call of a session around 350 ms |
-| price basis | $0.042 per million input tokens, output free ([docs.typesafe.ai/models](https://docs.typesafe.ai/models)) |
+| Default | the original six dimensions (fact-dense, engagement bait, promo, secondhand, filler, jevpilled); user editable |
+| Signal (legacy) | density, actionability, originality, evidence, promo, bait |
+| Signal v2 | topic, information density, original insight, evidence, actionable, promo, bait (experimental) |
+| AI / Tech | technical depth, benchmark support, novelty, speculation, implementation use, hype |
+| Article | density, evidence, sourcing, originality, depth, promo, speculation, action (used for article analysis) |
 
-## Settings
+Default is the default. Signal v2 is experimental, is never selected for you, and leaves Default's questions and behavior untouched until you switch. Results are cached per preset, so switching never reuses one preset's answers for another and never bills the same preset twice. Non-Default presets are read-only and their thresholds are first-pass defaults, not values calibrated against a labelled set.
 
-- **Enabled**: master switch.
-- **Scope**: everywhere on X (default), or the home timeline only.
-- **Only when logged in as**: a handle, for people who switch accounts and want it on one.
-- **Analyze replies/comments**: off by default. While it is off, posts X marks as replies are never sent to Jev, so they add no cost and show no chip. On an individual `/<handle>/status/<id>` page the route decides instead: only the post whose own status ID matches the URL is analyzed, and the other top-level articles there, direct comments and recommendations alike, are filtered, because X does not always render a `Replying to` row for them. Text quoted inside a post is not a reply and is always included.
-- **Analysis preset** and **thread context**: which typed questions run, and how much of a thread is attached.
-- **Articles**: whether the *Analyze article* and *Analyze X article* actions appear, the character cap sent to Jev,
-  the article cache size, and a one-time **Grant article access** control for linked pages. The native X Article
-  action needs no permission: it reads the page X already rendered.
-- **Dimensions**: add, remove, disable, rename, switch between Noul and Score, edit the question, levels
-  and criteria, set the threshold, whether the flag fires above or below it, and the flag color.
-- **Advanced**: model (pinned to `jev-1.13.0` so thresholds keep their meaning), price, base URL,
-  concurrency, look-ahead distance, wait before analyzing, cache size.
-- **Lifetime**: totals across sessions, a reset, and a cache clear.
-- **About**: read-only version, build and browser target. The version is read from the running extension manifest,
-  so a stale temporary add-on reports its own version rather than the one you just built. The HUD repeats the same
-  identity quietly in the corner.
+## Articles
 
-The questions default to English on purpose. Jev's docs say English is where its accuracy is best and
-CJK is handled but not equally well. The post text goes in as written, in whatever language.
+- **External articles.** When a post links out, an Analyze article action appears. Nothing is fetched or billed until you press it. The page is fetched without your cookies, reduced to its readable body (scripts, navigation and chrome dropped), capped at the configured character limit (8000 by default, adjustable 1000-40000), and cached under its canonical URL so it is never re-fetched.
+- **Native X Articles.** When X renders a long-form article inside a post, an Analyze X article action appears next to it. The text is read out of the page already on screen — title, lead and body paragraphs — so it needs no extra permission and no extra request. It is judged under the Article preset while the post above keeps its own result, with its own cache entry.
+- Truncation is marked: when the body exceeds the cap, the card says what was sent and what was cut.
 
-## How it works
+## Replies and status pages
 
-- A MutationObserver picks up each `article` X mounts in its virtualized timeline; an
-  IntersectionObserver with an 800 px bottom margin fires as soon as a post is near the viewport.
-  A wait before sending is available in settings for people who would rather pay only for posts
-  they actually stopped on.
-- The content script extracts the post id, text, quoted text and reply flag, and asks the service
-  worker to analyze. Only the service worker holds the API key.
-- One `POST /v1/systemone` per post carries all six questions. Retries follow the official SDKs:
-  429 and 529 back off, everything else fails fast.
-- At most 6 requests are in flight; the rest queue in order. A queued post that scrolls out of the
-  zone before its turn is dropped, so a fast flick past fifty posts does not bill fifty calls. Set
-  look-ahead to 0 and a wait of 200 ms to pay only for posts you actually stopped on.
-- Results are cached by post id in extension storage. Scrolling back, reloading, or returning the next
-  day re-bills nothing.
-- Promoted posts and posts with no text are never sent.
-- Linked article text is fetched only when you press *Analyze article*, is reduced to the readable body, capped at
-  the configured character limit, and cached under its canonical URL. A native X Article is read from the DOM in
-  front of you when you press *Analyze X article*: no fetch, no permission, its own cache entry.
+**Analyze replies/comments** is off by default. While it is off, posts X marks as replies are never sent to Jev: no cost, no row. On an individual status page the route decides instead: only the post whose own status ID matches the URL (the focal post) is analyzed, and the other top-level articles there — direct comments and recommendations alike — are filtered, because X does not always render a Replying to row for them. Text quoted inside a post is not a reply and is always included.
 
+## Session intelligence
+
+Click session in the corner panel for a local summary: posts analyzed, cache hits, session cost, average latency, flagged counts, which dimensions showed up, and the top-scoring posts and articles. Under Signal v2 it also shows the topic distribution and the average of each component. It costs no extra Jev calls. It is a local aggregate of what you already analyzed, not a recommendation engine.
+
+## Cost and privacy
+
+- Bring your own TypeSafe API key. Paste it in settings, test the connection, save. Typical cost is about $0.00004 per post at current pricing; a thousand posts is under four cents.
+- The key lives in the browser's extension storage and nowhere else. Only the background script reads it, and it is sent only as the Authorization header to the configured TypeSafe base URL.
+- Post text (plus quoted text, reply flag, and thread context where the preset asks for it) and, only when you press the button, article text go to `api.typesafe.ai`. Nothing else about the post goes: no author name, handle, post id, media, or engagement numbers — except that a native X Article's own x.com URL carries the author's handle.
+- There is no project-owned backend and no analytics or telemetry. Cost and usage counters are computed locally and never leave the device.
+- The dollar figure is exact where the API returns usage data: Jev returns `usage.input_tokens` with every answer.
+- Full details, including retention boundaries and TypeSafe's own handling of requests, are in PRIVACY.md.
+
+## Install from source
+
+Node 22 or newer is needed to build.
+
+Firefox / Zen:
+
+```sh
+git clone <this-repo-url>
+cd x-scanner
+npm install
+npm run build:firefox
 ```
-src/
-  background.ts         service worker: holds the key, calls Jev, keeps lifetime totals
-  shared/
-    questions.ts        the six default dimensions, request builder, cache hash
-    presets.ts          Default, Signal v2, Signal (legacy), AI / Tech and Article analysis profiles
-    article.ts          readable-text extraction from fetched HTML
-    links.ts            outbound article candidate detection and deduping
-    context.ts          bounded thread context and the versioned analysis payload
-    score.ts            deterministic 0..1 signal score, used only for session ranking
-    jev.ts              HTTP client with backoff, cost math
-    settings.ts         schema, defaults, normalization
-  content/
-    selectors.ts        every X DOM selector, in one place
-    observe.ts          MutationObserver + IntersectionObserver, look-ahead and optional wait
-    extract.ts          id, text, quote, reply and promoted detection
-    x-article.ts        native X Article detection and extraction, layered and conservative
-    queue.ts            concurrency-capped FIFO with cancel
-    cache.ts, store.ts  LRU and its persistence
-    article-store.ts    article LRU, keyed by canonical URL
-    labels.ts           threshold policy
-    render.ts           the chip, the detail card and the article card
-    session-panel.ts    the local session summary
-    hud.ts, stats.ts    the corner panel and its counters
-  options/              settings page
-test/
-  unit/                 node:test over the pure modules and DOM extraction (jsdom)
-  fixture/              a timeline that mimics X's markup and recycles nodes, plus v0.5 pages
-  e2e/                  Playwright: real extension, fake Jev, scrolls the fixture
-scripts/calibrate.ts    runs the defaults against the samples on the real API
+
+1. Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, choose `dist-firefox/manifest.json`.
+2. Click the x-scanner icon. Paste your TypeSafe API key, click **Test connection**, then **Save**. Never paste a real key into docs, tickets, screenshots, or chat.
+3. Open x.com and scroll. See ZEN_TEST.md for the full smoke-test checklist.
+
+Chromium:
+
+```sh
+npm run build:chromium
 ```
+
+1. Open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, choose `dist-chromium/`.
+2. Same key setup as above, then open x.com and scroll.
 
 ## Development
 
 ```sh
-npm run build            # Chromium development build → dist-chromium/
+npm run build            # Chromium development build
 npm run build:chromium   # same as npm run build
-npm run build:firefox    # Firefox/Zen development build → dist-firefox/
-npm run package          # build and zip dist-chromium/ for the Chrome Web Store
-npm run package:firefox  # zip dist-firefox/ for sideload/archive
+npm run build:firefox    # Firefox/Zen development build
+npm run package          # build and zip dist-chromium/
+npm run package:firefox  # build and zip dist-firefox/
 npm run watch            # rebuild dist-chromium/ on change
-npm test             # unit tests
-npm run test:e2e     # loads the built extension into Chrome for Testing (SCREENSHOT=1 also writes docs/screenshot.png)
-npm run calibrate    # real Jev calls over the sample posts (needs TYPESAFE_API_KEY in the env)
-npm run screenshots  # 1280x800 store screenshots from the fixture into store/
+npm test                 # unit tests
+npm run test:e2e         # real extension plus fake Jev in Chromium
+npm run calibrate        # real Jev calls over samples (needs TYPESAFE_API_KEY)
+npm run screenshots      # 1280x800 store screenshots from the fixture
 npm run typecheck
+npm run validate:artifacts  # checks both generated manifests
 ```
 
-Store listing copy, permission justifications and the privacy policy are in `store/` and `PRIVACY.md`.
+The end-to-end test starts a fake Jev server, scrolls the fixture like a reader, and checks flags, cost math, caching, scope and account filters, the settings round trip, focal-post behavior on status pages, and native article billing. It needs a Chromium or Chrome for Testing binary. Branded Google Chrome no longer accepts `--load-extension`.
 
-The end-to-end test starts a fake Jev server, scrolls the fixture like a reader, and checks that the
-right flags appear, that promoted and empty posts are never sent, that the panel's cost equals token
-usage times price, that node recycling does not double-bill, that scrolling back and reloading send
-nothing new, that scope and account filters pause the extension, and that the settings page round
-trips, and that on an individual status page only the focal post is judged while replies are off.
-It also checks that a native X Article is offered only on the post that carries it, that the article is
-billed exactly once, and that reloading serves it from cache.
-It needs a Chromium or Chrome for Testing binary (`npx playwright-core install chromium`, or
-set `CHROME_PATH`). Branded Google Chrome no longer accepts `--load-extension`.
+## Architecture
+
+```
+src/background.ts    service worker / event page: key, Jev calls, totals
+src/shared/          questions, presets, article text, context, client, settings
+src/content/         selectors, observers, extraction, queue, caches, rendering
+src/options/         settings page
+test/unit|fixture|e2e  pure-module tests, X-like fixture, Playwright runs
+scripts/             packaging, validation, calibration, screenshots
+```
+
+A MutationObserver picks up each `article` X mounts; an IntersectionObserver with an 800 px look-ahead fires as a post nears the viewport. At most 6 requests are in flight; the rest queue, and a post that scrolls away before its turn is dropped. Results cache by post id in extension storage. Promoted posts and posts with no text are never sent.
 
 ## Limits
 
-- Jev reads literally. A post written to argue for its own classification can move an answer, which is
-  why thresholds default high.
-- Article extraction is a small readable-text pass, not a reader-mode engine. Pages that render entirely in client-side JavaScript, or that hide the body behind a paywall or a consent wall, yield little or no text, and the card says so rather than sending page chrome.
-- Native X Article detection matches semantics - the route's status ID, heading roles, prose blocks and X's own container names - never X's generated class names or a position on screen. It is built to miss rather than to guess, so a reader markup it does not recognise leaves the action hidden; the slot then reports what it decided in `data-xs-native-article`, and ZEN_TEST.md records how to read that on a live page.
-- Thread context is read from the DOM of the page you are on, and only on a post's own URL. A home-timeline neighbour is never treated as a parent.
-- Session ranking uses a fixed weighted sum over each preset's typed answers. Signal v2 has no weighted sum at all: it ranks by information density alone, so nothing resembling an overall signal score exists. Either way the ranking is a local sort key, not a judgement about the post's value.
-- On an individual status page with Analyze replies/comments off, only the focal post is analyzed: the post whose own status ID matches the URL. The other top-level articles on that conversation page, possible recommendations included, are filtered deliberately, and X not always rendering a `Replying to` row for direct comments is why the route rather than the markup decides there.
-- Replies by the original author that form a thread are skipped while Analyze replies/comments is off, because X does not mark that distinction. Author-thread detection is intentionally deferred.
-- Works on x.com as of September 2026. The selectors live in `src/content/selectors.ts`; if X changes
-  its markup, that is the file to fix. The automated tests run against the fixture, not live X.
-- Promoted posts are recognized by the "Ad" label in a handful of UI languages. Add yours to
-  `selectors.ts` if X shows something else.
-- The prompts are tuned on English. Run `npm run calibrate` on your own samples before trusting the
-  defaults in another language.
+- X's DOM may change. Selectors live in `src/content/selectors.ts`; if X changes its markup, that is the file to fix. Tests run against the fixture, not live X.
+- Typed judgments are model outputs, not ground truth. Jev reads literally; a post written to argue for its own classification can move an answer, which is why thresholds default high.
+- Prompts are calibrated on English. Run `npm run calibrate` on your own samples before trusting the defaults in another language; post text itself goes in as written, in whatever language.
+- A temporary add-on keeps running the code it was loaded with. Rebuilding does not update the running instance, and About reports the running build's own version — always remove and re-add the temporary add-on, then reload the X page, before testing new content-script behavior.
+- Native X Article detection is conservative by design: it matches semantics (route status ID, heading roles, prose blocks, X's own container names), never generated class names or screen position. Unrecognized markup leaves the action hidden rather than guessing.
+- Article bodies are capped (8000 characters by default) and pages that render entirely in client-side JavaScript, or hide behind a paywall or consent wall, yield little or no text. The card says so rather than sending page chrome.
+- Replies by the original author that form a thread are skipped while replies are off, because X does not mark that distinction. Author-thread detection is intentionally deferred.
+- Promoted posts are recognized by the Ad label in a handful of UI languages. Add yours to `selectors.ts` if X shows something else.
 
-## 中文說明
+## Differences from upstream
 
-一個 Chrome 外掛。你在 X 上滑到的每則推文，一接近畫面（預設提前 800 px）就送去 Jev 做六個維度的判斷：
-資訊密度、Engagement bait、推銷、轉述、灌水，以及是否在談 Jev 本身。六題併在同一個 request，約 150 毫秒回來。結果顯示
-在推文下方的一個小框：沒有超過門檻就是綠色的 ✓ clean，有的話橘色標出，後面接每個維度的數值；點一下看完整
-細節。右下角面板即時顯示本次分析則數、累計花費（小數點後四位，用 Jev 回傳的 token 數精確計算）、上一次呼叫
-延遲、每秒判斷數。
+Short version: Firefox / Zen support with generated browser-specific manifests, Signal v2 with topic classification, reply filtering and route-aware focal-post behavior, external and native X Article analysis, session intelligence with topic distribution, per-preset caches, and expanded tests. Details: docs/DIFFERENCES_FROM_UPSTREAM.md.
 
-同時進行的請求上限 6，超過排隊；滑走的推文自動離隊不計費。結果以推文 ID 快取，回捲、重新整理都不重新計費。
-廣告與純圖片推文不送出。無後端、無資料蒐集，API key 只存在本機。所有問題與門檻都可在設定頁編輯。提示詞預設
-英文，因為 Jev 文件說明英文準確度最佳；推文本身以原文送出。
+## Origin and attribution
+
+Originally based on oso95/x-scanner. This fork adds Firefox/Zen support, Signal v2, article analysis, session intelligence, and additional cross-browser tooling. Upstream authors do not endorse this fork. See LICENSE for the MIT license text.
 
 ## License
 
-MIT
+MIT. See LICENSE.

@@ -4,7 +4,7 @@ Development-only. Do not publish this build to AMO. Do not put a TypeSafe API ke
 
 Chromium uses a background service worker. Firefox and Zen use an MV3 event-page background script because Firefox does not
 run background.service_worker for this extension. The Firefox manifest sets browser_specific_settings.gecko.id to
-x-scanner@local so reloading the temporary add-on keeps the same extension identity, and therefore your settings and cache.
+x-scanner@whitegull.ai so reloading the temporary add-on keeps the same extension identity, and therefore your settings and cache. Do not change this id: it is the permanent identity used for signed installs and any later public listing.
 
 ## 1. Build
 
@@ -23,9 +23,16 @@ The loadable artifact is dist-firefox/. Optional zip:
 2. Go to about:debugging#/runtime/this-firefox
 3. Under This Firefox, click Load Temporary Add-on.
 4. Select dist-firefox/manifest.json
-5. Confirm x-scanner appears with id x-scanner@local and the background script is running. Temporary add-ons need no signing.
+5. Confirm x-scanner appears with id x-scanner@whitegull.ai and the background script is running. Temporary add-ons need no signing.
 
 If you reload the add-on after rebuilding, load the same dist-firefox/manifest.json again.
+
+Reloading the temporary add-on does not guarantee already-injected content scripts in an open X tab are replaced. Developer workflow after every rebuild:
+
+1. reload the extension in about:debugging,
+2. reload the X page,
+3. then test new content-script behavior, after checking Version and Build (section 2.1) and the preset named in the
+   HUD (section 4).
 
 ### 2.1 Confirm which build is actually running, before anything else
 
@@ -34,13 +41,13 @@ running instance has the new code, and About:debugging will happily show the old
 continue into reply testing until these three values are right.
 
 1. Open x-scanner settings and scroll to the About section.
-2. Confirm it reads Version: 0.6.0
+2. Confirm it reads Version: 0.6.1
 3. Confirm Build: shows the short sha of the commit you built (the build prints it, for example "build fad243e"). If
    it reads unknown, the artifact was built outside a git checkout.
 4. Confirm Browser target: Firefox
 5. Confirm Analyze replies/comments is unchecked and its Current value line says OFF.
 6. If any of these disagree, remove and re-add the temporary add-on from dist-firefox/manifest.json, then check again.
-7. The HUD in the corner repeats the same identity quietly as v0.6.0 · <sha>, so you can confirm it on x.com itself
+7. The HUD in the corner repeats the same identity quietly as v0.6.1 · <sha>, so you can confirm it on x.com itself
    without opening about:debugging.
 
 ## 3. Settings
@@ -175,7 +182,7 @@ Analyze replies/comments is off by default. This is the check that the filter is
 
 Do step 2.1 first, with these three values on screen before anything below means anything:
 
-    Version: 0.6.0
+    Version: 0.6.1
     Build: <the sha printed by the build you loaded>
     Analyze replies/comments: OFF
 
@@ -234,7 +241,7 @@ Zen exits.
 The experimental preset added in v0.6.0. It separates what a post is about, how much useful signal it
 carries, and whether it is pushing something or fishing for engagement.
 
-1. Reload the final Firefox artifact and re-check section 2.1: Version must read 0.6.0 and Build must be the
+1. Reload the final Firefox artifact and re-check section 2.1: Version must read 0.6.1 and Build must be the
    sha of the commit you built.
 2. Select Signal v2 in the preset list, save, and confirm the HUD title names it.
 3. Open several real posts that differ in kind: a technical write-up, an analytics or BI post, a company or

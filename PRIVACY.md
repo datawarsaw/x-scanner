@@ -1,6 +1,6 @@
 # Privacy policy for x-scanner
 
-Last updated 2026-09-20.
+Last updated 2026-09-27 (Signal v2, native X Articles, Firefox data-collection declaration).
 
 x-scanner is a browser extension that sends the text of posts you scroll past on X to TypeSafe's Jev
 API and shows the answers next to the post. It has no server of its own and no analytics.
@@ -33,7 +33,7 @@ not train on customer requests.
 
 ## What stays in your browser
 
-Stored in Chrome's extension storage on your device, never synced or transmitted by the extension:
+Stored in the browser's extension storage on your device (Chrome or Firefox), never synced or transmitted by the extension:
 
 - your API key and settings,
 - a cache of results keyed by post id, article results keyed by canonical URL, and native X Article
@@ -57,4 +57,13 @@ the extension deletes all of it.
 
 ## Contact
 
-Open an issue at https://github.com/oso95/x-scanner/issues.
+Open an issue in this repository (see the repository URL in the store listing). This fork is not affiliated with the upstream project; do not file its issues there.
+
+## Firefox data-collection declaration
+
+The Firefox build declares its data practices in the manifest as required by Mozilla:
+required websiteContent and authenticationInfo, with no optional declaration. Website content (post and article text) and the API key are sent to TypeSafe only when you analyze something, because that is the extension's core function; nothing is collected for any optional purpose (the schema forbids "none" in the optional list, so omitting the key is the correct declaration). Session counters, caches, and settings never leave the device.
+
+## Retention under extension control
+
+Post results are cached by post id, article results by canonical URL, and native X Article results by status id plus a hash of the article text; lifetime counters accumulate until you reset them. You can clear the post cache, the article cache, and the counters from the settings page, and removing the extension deletes all of it. What TypeSafe retains on its side is governed by TypeSafe's own terms and privacy policy, not by this extension.

@@ -63,6 +63,8 @@ test("Firefox manifest uses background.scripts and a stable gecko id", () => {
   assert.equal(m.background.service_worker, undefined);
   assert.equal(m.browser_specific_settings.gecko.id, FIREFOX_GECKO_ID);
   assert.equal(m.browser_specific_settings.gecko.strict_min_version, FIREFOX_STRICT_MIN_VERSION);
+  assert.deepEqual(m.browser_specific_settings.gecko.data_collection_permissions.required.sort(), ["authenticationInfo", "websiteContent"].sort());
+  assert.equal(m.browser_specific_settings.gecko.data_collection_permissions.optional, undefined);
   assert.deepEqual(m.content_scripts[0].matches, ["https://x.com/*", "https://twitter.com/*"]);
   assert.deepEqual(m.host_permissions, ["https://api.typesafe.ai/*"]);
   assert.deepEqual(m.permissions, ["storage"]);

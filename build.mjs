@@ -8,10 +8,44 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const TARGETS = ["chromium", "firefox"];
-/** Stable Firefox identity so reloading a temporary add-on keeps settings and cache. */
-export const FIREFOX_GECKO_ID = "x-scanner@local";
+/**
+ * Permanent Firefox identity for signing and long-term installs.
+ *
+ * Chosen as a project-owned email-style id so the same identity survives
+ * temporary loading, signed unlisted installs, and a later public AMO listing.
+ * Do not change this after the first signed build: changing it creates a new
+ * extension identity and drops existing settings and caches.
+ * Verify control of the whitegull.ai domain before submission; if it is not
+ * controlled, replace with a GUID-style id before the first signed build.
+ */
+export const FIREFOX_GECKO_ID = "x-scanner@whitegull.ai";
 /** 128 is the first Firefox that understands optional_host_permissions, which article analysis needs. */
 export const FIREFOX_STRICT_MIN_VERSION = "128.0";
+/**
+ * AMO data-collection declaration for the Firefox target.
+ *
+ * Rationale (checked against current MDN for
+ * browser_specific_settings.gecko.data_collection_permissions):
+ * - websiteContent (required): post text, quoted text, thread context, and
+ *   article text are sent to TypeSafe only when the user analyzes something.
+ *   The extension cannot function without this.
+ * - authenticationInfo (required): the user-provided TypeSafe API key is sent
+ *   as the Authorization header on those same analysis calls.
+ * - no "optional" declaration — session counters, cache, and settings never
+ *   leave the device and there is no telemetry, so nothing is collected
+ *   optionally (the schema forbids "none" in "optional"; omitting the key
+ *   is the correct way to declare that).
+ * Unknown keys are ignored by Firefox older than the schema version, so this
+ * stays safe under strict_min_version 128.0.
+ */
+// Note: "optional" is deliberately omitted. The linter schema for
+// OptionalDataCollectionPermission accepts only data categories plus
+// "technicalAndInteraction" — "none" is not a valid optional value (it is
+// exclusive to "required"). Omitting "optional" defaults to no optional
+// collection, which is the truthful statement here.
+export const FIREFOX_DATA_COLLECTION_PERMISSIONS = {
+  required: ["websiteContent", "authenticationInfo"],
+};
 
 /** Only a plain commit sha is allowed through to the UI; nothing machine specific ever reaches it. */
 export function isSafeBuildSha(value) {
@@ -63,7 +97,11 @@ export function manifestForTarget(source, { target, e2e }) {
     // Firefox MV3 does not run background.service_worker; event pages use background.scripts.
     manifest.background = { scripts: ["background.js"] };
     manifest.browser_specific_settings = {
-      gecko: { id: FIREFOX_GECKO_ID, strict_min_version: FIREFOX_STRICT_MIN_VERSION },
+      gecko: {
+        id: FIREFOX_GECKO_ID,
+        strict_min_version: FIREFOX_STRICT_MIN_VERSION,
+        data_collection_permissions: structuredClone(FIREFOX_DATA_COLLECTION_PERMISSIONS),
+      },
     };
   }
   return manifest;

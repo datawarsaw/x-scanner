@@ -3,7 +3,7 @@
 Preparation notes for a future addons.mozilla.org submission. **This is not a claim of compliance.** Nothing here has been
 reviewed by Mozilla, and the extension has not been submitted. Status below is stated as observed on the date shown.
 
-Last reviewed: 2026-09-21 against v0.6.0 of this repository.
+Last reviewed: 2026-09-27 against v0.6.1 of this repository (release-readiness pass: permanent gecko id, data_collection_permissions, Firefox listing, reviewer notes, signing docs). The v0.6.1 hardening task is in flight in parallel; version references below track package.json and must be re-checked at release time.
 
 ## Permissions
 
@@ -85,7 +85,7 @@ computed locally and never leave the device.
 
     npm ci
     npm run build:firefox     # dist-firefox/
-    npm run package:firefox   # x-scanner-0.6.0-firefox.zip
+    npm run package:firefox   # x-scanner-0.6.1-firefox.zip (name tracks package.json version)
 
 The shipped artifact contains only background.js, content.js, options.js, the two stylesheets, the settings page, icons, and a
 generated manifest.json. Sources are plain TypeScript under src/; the only build step is esbuild via build.mjs, with no
@@ -97,24 +97,19 @@ Run npm run validate:artifacts to check both generated manifests and the require
 ## Manifest metadata
 
 - manifest_version 3
-- browser_specific_settings.gecko.id is x-scanner@local, a development identity; the permanent id is a release decision
+- browser_specific_settings.gecko.id is x-scanner@whitegull.ai, the permanent identity for signed installs and any later listing. Do not change it after the first signed build. Verify control of the whitegull.ai domain before submission; if it is not controlled, replace with a GUID-style id before signing.
 - strict_min_version 128.0, the first Firefox that understands optional_host_permissions, which article access uses
 - homepage_url points at the upstream repository
 
-Firefox 139 and later show a notice that browser_specific_settings.gecko.data_collection_permissions is missing. It is not
-required for temporary loading, and it is deliberately left unset in v0.5 rather than declaring a consent surface that has not
-been designed or tested. It must be resolved before submission.
+browser_specific_settings.gecko.data_collection_permissions is declared in the generated Firefox manifest: required [websiteContent, authenticationInfo], with no optional declaration. Rationale: post/article text and the user-provided TypeSafe API key are sent to TypeSafe only when the user analyzes something (the extension cannot function without this); session counters, caches, and settings never leave the device, so nothing is collected optionally. Verified against the linter schema (addons-linter): `optional` accepts only data categories plus technicalAndInteraction — `none` is exclusive to `required` — so omitting the key is the correct declaration, confirmed by a zero-error `web-ext lint`. `strict_min_version` stays 128.0, which predates the data_collection_permissions schema (Firefox 140): older Firefox ignores the unknown key and the linter reports only a version-support warning. Re-verify against the live schema at submission time.
 
 ## Still required before submission
 
-1. Decide and declare data_collection_permissions. A truthful declaration is that technical and interaction data goes to a
-   third party only when the user analyzes something, and the wording must be checked against the current schema.
-2. Replace the development gecko id with the permanent one issued at submission.
-3. Sign the artifact and verify the signed build loads from a normal profile.
-4. Publish a public source URL for the reviewer package, or ship the sources as the submitted package.
-5. Re-check PRIVACY.md against the shipped build, including that the TypeSafe statement quoted in it is still accurate.
-6. Confirm the listing copy under store/ matches v0.5 behaviour, including article analysis.
-7. Re-run the full validation matrix and record the results for the submitted revision.
+1. Sign the artifact (unlisted first) and verify the signed build loads from a normal profile and persists across restart (docs/FIREFOX_SIGNING.md).
+2. Publish a public source URL for the reviewer package, or ship the sources as the submitted package (AMO_REVIEW.md).
+3. Re-check PRIVACY.md against the shipped build, including that the TypeSafe statement quoted in it is still accurate.
+4. Confirm the listing copy under store/firefox-listing.md matches v0.6 behaviour, including Signal v2 and article analysis, and regenerate screenshots from the fixture after any UI change (store/SCREENSHOT_PLAN.md).
+5. Re-run the full validation matrix and record the results for the submitted revision.
 
 ## Not claimed
 
