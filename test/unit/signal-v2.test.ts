@@ -101,11 +101,15 @@ test("a score and a noul share the 0..100 range without sharing a meaning", () =
   const one = (dims: Dimension[], answers: Record<string, Answer>): Verdict => verdicts(dims, answers)[0]!;
 
   assert.equal(normalized(one([scoreDim], scoreAnswers(0))), 0);
+  assert.equal(normalized(one([scoreDim], scoreAnswers(1))), 33);
   assert.equal(normalized(one([scoreDim], scoreAnswers(1.5))), 50);
+  assert.equal(normalized(one([scoreDim], scoreAnswers(2))), 67);
   assert.equal(normalized(one([scoreDim], scoreAnswers(2.4))), 80);
   assert.equal(normalized(one([scoreDim], scoreAnswers(3))), 100);
   assert.equal(normalized(one([noulDim], noulAnswers(0))), 0);
+  assert.equal(normalized(one([noulDim], noulAnswers(0.04))), 4);
   assert.equal(normalized(one([noulDim], noulAnswers(0.12))), 12);
+  assert.equal(normalized(one([noulDim], noulAnswers(0.56))), 56);
   assert.equal(normalized(one([noulDim], noulAnswers(1))), 100);
 
   // Out-of-range values clamp rather than overflowing the bar.
@@ -129,6 +133,36 @@ test("the reference fixture reads exactly as the documented compact row", () => 
     "Tech Industry 7%",
     "Other 3%",
   ]);
+});
+
+/** The values a live Signal v2 run reported for one post, rubric levels included. */
+const LIVE_FIXTURE: Record<string, Answer> = {
+  topic: { type: "choice", choice: "ai", confidence: 0.9, probabilities: { ai: 0.8, software_engineering: 0.1, tech_industry: 0.06, other: 0.04 } },
+  information_density: { type: "score", score: 3, confidence: 0.9, probabilities: {}, legend: {} },
+  original_insight: { type: "score", score: 0, confidence: 0.9, probabilities: {}, legend: {} },
+  evidence: { type: "score", score: 0, confidence: 0.9, probabilities: {}, legend: {} },
+  actionable: { type: "score", score: 1, confidence: 0.9, probabilities: {}, legend: {} },
+  promotion: { type: "noul", noul: 0.04 },
+  engagement_bait: { type: "noul", noul: 0.56 },
+};
+
+test("a live Signal v2 row prints the shared 0..100 range, never the rubric's 0..3 level", () => {
+  const vs = verdicts(V2, LIVE_FIXTURE);
+  const compact = vs.map((v) => (v.type === "choice" ? v.choice!.label : v.short + " " + normalized(v)));
+  assert.deepEqual(compact, ["AI", "density 100", "insight 0", "evidence 0", "actionable 33", "promo 4", "bait 56"]);
+  // The raw rubric level is what the row must not print, on any of the four scores.
+  assert.deepEqual(vs.filter((v) => v.type === "score").map((v) => v.value), [3, 0, 0, 1]);
+
+  // The shared range is presentation only: 3.0 of 3 crosses the 2.5 score threshold while 1.0 of 3 does
+  // not, and 0.56 stays under the 0.75 noul threshold even though the same value prints as 56.
+  assert.deepEqual(vs.filter((v) => v.show).map((v) => v.id), ["information_density"]);
+  assert.equal(vs.find((v) => v.id === "promotion")!.show, false);
+  assert.equal(vs.find((v) => v.id === "engagement_bait")!.value, 0.56);
+
+  // Details keep both readings, and a score is never described as a probability.
+  assert.equal(rawDetail(vs[1]!), "Raw score: 3.0 / 3");
+  assert.equal(rawDetail(vs[5]!), "Probability true: 4%");
+  assert.equal(rawDetail(vs[6]!), "Probability true: 56%");
 });
 
 test("Signal v2 exposes no aggregate score anywhere", () => {

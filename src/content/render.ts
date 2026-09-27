@@ -218,7 +218,9 @@ function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult, mode
     const bar = document.createElement("span");
     bar.className = "xs-detail-bar";
     const fill = document.createElement("i");
-    const width = mode === "normalized" ? normalized(v) : Math.round((Math.max(0, Math.min(v.max, v.value)) / v.max) * 100);
+    // The bar is the same 0..100 mapping in both display modes, so the raw presets and Signal v2
+    // cannot drift apart; only the number beside it and the raw line below it differ by mode.
+    const width = normalized(v);
     fill.style.width = width + "%";
     bar.appendChild(fill);
     const val = document.createElement("span");

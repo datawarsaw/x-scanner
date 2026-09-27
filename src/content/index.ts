@@ -1,7 +1,7 @@
 // Content script entry. Wires the watcher, scheduler, cache, HUD and renderer together.
 import type { AnalysisResult, AnalyzeReply, ArticleState, Settings, TweetState, Verdict } from "../shared/types.ts";
 import { loadSettings, onSettingsChange } from "../shared/settings.ts";
-import { buildQuestions, questionsHash } from "../shared/questions.ts";
+import { questionsHash } from "../shared/questions.ts";
 import { extractTweet, isReply, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
 import { routeStatusId, shouldAnalyzePost } from "./route.ts";
 import { TweetWatcher } from "./observe.ts";
@@ -10,10 +10,10 @@ import { ResultStore } from "./store.ts";
 import { SessionStats, type Observation, type TopicObservation } from "./stats.ts";
 import { Hud } from "./hud.ts";
 import { ensureSlot, fillSlot, getSlot, installDetailHandler, markSlot, ensureArticleAction, fillArticleResult, type ArticleAction, type DisplayMode } from "./render.ts";
-import { verdicts } from "./labels.ts";
+import { scoreRatio, verdicts } from "./labels.ts";
 import { ArticleStore } from "./article-store.ts";
 import { renderSessionPanel } from "./session-panel.ts";
-import { activeDimensions, contextModeFor, PRESET_BY_ID } from "../shared/presets.ts";
+import { activeDimensions, activeQuestions, contextModeFor, PRESET_BY_ID } from "../shared/presets.ts";
 import { buildJevState, contextHash, postCacheKey } from "../shared/context.ts";
 import { extractReadable, hostOf } from "../shared/article.ts";
 import { isHighSignal, signalScore } from "../shared/score.ts";
@@ -61,7 +61,9 @@ class App {
       this.hud.message(`Add your TypeSafe API key in ${SETTINGS_LINK}`);
       return;
     }
-    if (Object.keys(buildQuestions(this.settings.dimensions)).length === 0) {
+    // The guard reads the active schema, exactly like the request the analysis path will send. A
+    // preset with its own dimensions is enabled even when every editable legacy dimension is off.
+    if (Object.keys(activeQuestions(this.settings)).length === 0) {
       this.hud.message(`No dimensions enabled · ${SETTINGS_LINK}`);
       return;
     }
@@ -449,9 +451,7 @@ class App {
 
 /** The non-categorical components as 0..1 means, for the Signal v2 session averages. */
 function observationsOf(vs: Verdict[]): Observation[] {
-  return vs
-    .filter((v) => v.type !== "choice")
-    .map((v) => ({ id: v.id, label: v.label, value: v.max > 0 ? Math.min(1, Math.max(0, v.value / v.max)) : 0 }));
+  return vs.filter((v) => v.type !== "choice").map((v) => ({ id: v.id, label: v.label, value: scoreRatio(v) }));
 }
 
 /** The selected topic, when the preset asks a categorical question. */

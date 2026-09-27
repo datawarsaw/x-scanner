@@ -51,13 +51,19 @@ export function formatValue(v: Verdict): string {
 }
 
 /**
- * The shared 0..100 display range, used only by presets that opt into it (Signal v2). A score is
- * scaled by its own rubric maximum; a noul is already a probability. The two share a range but not
- * a meaning, which is why the raw semantics stay visible in the detail card.
+ * Where a verdict sits inside its own range, as 0..1. A score is scaled by its rubric maximum; a
+ * noul is already a probability. The two share a range but not a meaning, which is why the raw
+ * semantics stay visible in the detail card. This is the one place that mapping is computed: the
+ * compact row, the detail value, the detail bar and the session averages all read it.
  */
-export function normalized(v: Verdict): number {
+export function scoreRatio(v: Verdict): number {
   if (v.type === "choice" || v.max <= 0) return 0;
-  return Math.round(Math.max(0, Math.min(1, v.value / v.max)) * 100);
+  return Math.max(0, Math.min(1, v.value / v.max));
+}
+
+/** The shared 0..100 display range, used only by presets that opt into it (Signal v2). */
+export function normalized(v: Verdict): number {
+  return Math.round(scoreRatio(v) * 100);
 }
 
 /** Raw semantics under a normalized value: the rubric level for a score, the probability for a noul. */

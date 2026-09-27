@@ -1,5 +1,5 @@
-import type { ChoiceOption, Dimension, Preset, PresetId, Settings, ThreadContextMode } from "./types.ts";
-import { DEFAULT_DIMENSIONS } from "./questions.ts";
+import type { ChoiceOption, Dimension, JevQuestion, Preset, PresetId, Settings, ThreadContextMode } from "./types.ts";
+import { buildQuestions, DEFAULT_DIMENSIONS } from "./questions.ts";
 
 function fromDefault(id: string): Dimension {
   const d = DEFAULT_DIMENSIONS.find((x) => x.id === id);
@@ -413,6 +413,15 @@ export function isPresetId(v: unknown): v is PresetId {
 export function activeDimensions(settings: Settings): Dimension[] {
   if (settings.selectedPreset === "default") return settings.dimensions;
   return PRESET_BY_ID[settings.selectedPreset]?.dimensions ?? settings.dimensions;
+}
+
+/**
+ * The questions the running configuration actually asks: empty exactly when the active schema has
+ * nothing enabled. Read this, never `buildQuestions(settings.dimensions)`: the editable legacy
+ * dimensions sit behind a preset and are not what the reader selected.
+ */
+export function activeQuestions(settings: Settings): Record<string, JevQuestion> {
+  return buildQuestions(activeDimensions(settings));
 }
 
 export function contextModeFor(settings: Settings): ThreadContextMode {

@@ -4,7 +4,7 @@ import type { AnalyzeReply, ArticleState, FetchArticleReply, LifetimeStats, Mess
 import { loadSettings, onSettingsChange, STATS_KEY } from "./shared/settings.ts";
 import { buildQuestions } from "./shared/questions.ts";
 import { callJev, costUsd, JevError } from "./shared/jev.ts";
-import { PRESET_BY_ID, activeDimensions } from "./shared/presets.ts";
+import { PRESET_BY_ID, activeQuestions } from "./shared/presets.ts";
 
 const SAMPLE: TweetState = {
   text: "Most people will never understand this about building a startup.\n\nIt is not about the idea. It is about the founder.\n\nRT if you agree and follow me for more founder lessons.",
@@ -46,7 +46,7 @@ async function handle(msg: Message): Promise<unknown> {
 async function analyze(state: TweetState): Promise<AnalyzeReply> {
   const s = await settingsPromise;
   if (!s.apiKey) return { ok: false, error: "no API key", status: 401 };
-  const questions = buildQuestions(activeDimensions(s));
+  const questions = activeQuestions(s);
   if (Object.keys(questions).length === 0) return { ok: false, error: "no enabled dimensions" };
   try {
     const { response, latencyMs } = await callJev({ model: s.model, state, questions }, { baseUrl: s.baseUrl, apiKey: s.apiKey });

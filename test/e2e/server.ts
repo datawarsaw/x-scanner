@@ -26,9 +26,19 @@ const SIGNAL_V2_SCORES: Record<string, number> = { information_density: 2.4, ori
 /** Candidate distribution the fake reports for a choice question: the documented Signal v2 example. */
 const CHOICE_SHARES: Record<string, number> = { ai: 0.72, software_engineering: 0.18, tech_industry: 0.07, other: 0.03 };
 
+/**
+ * Per-id answers a test wants verbatim, e.g. the numbers a manual run really reported. Anything not
+ * named here keeps the keyword driven behaviour below.
+ */
+export interface AnswerOverrides {
+  scores?: Record<string, number>;
+  nouls?: Record<string, number>;
+}
+
 export function fakeAnswers(
   state: { text: string; quoted_text?: string },
   questions: Record<string, { type?: string; criteria?: unknown }>,
+  overrides: AnswerOverrides = {},
 ) {
   const t = state.text.toLowerCase();
   const v = { info_density: 1.0, engagement_bait: 0.08, promotion: 0.1, secondhand: 0.2, padding: 0.5, about_jev: 0.03 };
@@ -48,7 +58,7 @@ export function fakeAnswers(
   for (const [id, q] of Object.entries(questions)) {
     const val = (v as Record<string, number>)[id] ?? 0.1;
     if (q?.type === "score") {
-      answers[id] = { type: "score", score: SIGNAL_V2_SCORES[id] ?? val, confidence: 0.9, probabilities: {}, legend: {} };
+      answers[id] = { type: "score", score: overrides.scores?.[id] ?? SIGNAL_V2_SCORES[id] ?? val, confidence: 0.9, probabilities: {}, legend: {} };
     } else if (q?.type === "choice") {
       const optionIds = Object.keys((q.criteria as Record<string, string>) ?? {});
       const probabilities: Record<string, number> = {};
@@ -60,7 +70,7 @@ export function fakeAnswers(
       if (!Object.keys(probabilities).length) optionIds.slice(0, 4).forEach((oid, i) => (probabilities[oid] = [0.72, 0.18, 0.07, 0.03][i]!));
       answers[id] = { type: "choice", choice: optionIds[0] ?? "other", confidence: 0.9, probabilities };
     } else {
-      answers[id] = { type: "noul", noul: val };
+      answers[id] = { type: "noul", noul: overrides.nouls?.[id] ?? val };
     }
   }
   return answers;
@@ -70,7 +80,10 @@ export function tokensFor(state: unknown): number {
   return 640 + Math.ceil(JSON.stringify(state).length / 4);
 }
 
-export async function startServer(fixtureDir: string): Promise<{ port: number; requests: SeenRequest[]; close: () => void; totalTokens: () => number }> {
+export async function startServer(
+  fixtureDir: string,
+  overrides: AnswerOverrides = {},
+): Promise<{ port: number; requests: SeenRequest[]; close: () => void; totalTokens: () => number }> {
   const requests: SeenRequest[] = [];
   let totalTokens = 0;
   const server = http.createServer(async (req, res) => {
@@ -123,7 +136,7 @@ export async function startServer(fixtureDir: string): Promise<{ port: number; r
       totalTokens += input_tokens;
       await new Promise((r) => setTimeout(r, 60 + Math.random() * 60));
       res.writeHead(200, { "Content-Type": "application/json", ...cors });
-      res.end(JSON.stringify({ model: parsed.model, answers: fakeAnswers(parsed.state, parsed.questions), usage: { input_tokens, output_tokens: 85 } }));
+      res.end(JSON.stringify({ model: parsed.model, answers: fakeAnswers(parsed.state, parsed.questions, overrides), usage: { input_tokens, output_tokens: 85 } }));
       return;
     }
     if (req.method === "GET" && req.url === "/__requests") {
