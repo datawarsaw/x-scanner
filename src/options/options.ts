@@ -1,6 +1,6 @@
 // Options page. Reads settings into the form, writes the form back on Save.
 import type { AnalyzeReply, Dimension, Settings } from "../shared/types.ts";
-import { loadSettings, loadStats, normalizeSettings, notifySettingsChanged, saveSettings, STATS_KEY } from "../shared/settings.ts";
+import { loadSettings, loadStats, normalizeSettings, notifySettingsChanged, saveSettings, settingsSnapshotKey, STATS_KEY } from "../shared/settings.ts";
 import { DEFAULT_DIMENSIONS, validateDimension } from "../shared/questions.ts";
 import { answerValue } from "../content/labels.ts";
 import { PRESETS, PRESET_BY_ID } from "../shared/presets.ts";
@@ -12,8 +12,26 @@ const $ = <T extends HTMLElement>(sel: string, root: ParentNode = document): T =
   return el;
 };
 
-const dimList = $("#dimList");
-const template = $<HTMLTemplateElement>("#dimTemplate");
+let dimList: HTMLElement;
+let template: HTMLTemplateElement;
+
+let lastSavedSettingsKey = "";
+let lastSavedPreset: Settings["selectedPreset"] = "default";
+
+function initDomRefs(): void {
+  dimList = $("#dimList");
+  template = $<HTMLTemplateElement>("#dimTemplate");
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+export function formatDimName(d: Dimension): string {
+  const raw = d.short ?? d.label;
+  if (!raw) return d.id;
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
 
 function fillForm(s: Settings): void {
   $<HTMLInputElement>("#apiKey").value = s.apiKey;
@@ -34,7 +52,10 @@ function fillForm(s: Settings): void {
   $<HTMLInputElement>("#maxArticleChars").value = String(s.maxArticleChars);
   $<HTMLInputElement>("#articleCacheMax").value = String(s.articleCacheMax);
   renderDims(s.dimensions);
+  lastSavedSettingsKey = settingsSnapshotKey(s);
+  lastSavedPreset = s.selectedPreset;
   renderPreset();
+  updateDirtyState(false);
   renderReplyState();
   void renderArticleAccess();
 }
@@ -50,17 +71,119 @@ function renderPresetOptions(): void {
   }
 }
 
+export function renderPresetSummary(selectedId: Settings["selectedPreset"], isSaved: boolean): void {
+  const p = PRESET_BY_ID[selectedId];
+  if (!p) return;
+  const nameEl = $<HTMLElement>("#presetSummaryName");
+  const badgeEl = $<HTMLElement>("#presetSummaryBadge");
+  const descEl = $<HTMLElement>("#presetSummaryDesc");
+  const dimsEl = $<HTMLElement>("#presetSummaryDims");
+  const activeLabelEl = $<HTMLElement>("#presetSummaryActiveLabel");
+
+  nameEl.textContent = p.label;
+  if (selectedId === "default") {
+    badgeEl.textContent = "6 editable dimensions";
+    descEl.textContent = "The original six dimensions. Editable in the Dimensions section below.";
+    const currentDims = readDims().dims;
+    const dimsToShow = currentDims.length ? currentDims : DEFAULT_DIMENSIONS;
+    dimsEl.innerHTML = dimsToShow
+      .map((d) => `<span class="preset-dim-chip">${escapeHtml(formatDimName(d))}</span>`)
+      .join("");
+  } else {
+    badgeEl.textContent = `${p.dimensions.length} fixed dimensions`;
+    descEl.textContent = p.description;
+    dimsEl.innerHTML = p.dimensions
+      .map((d) => `<span class="preset-dim-chip">${escapeHtml(formatDimName(d))}</span>`)
+      .join("");
+  }
+
+  if (isSaved) {
+    activeLabelEl.textContent = "Active (Saved)";
+    activeLabelEl.className = "preset-runtime-badge active";
+  } else {
+    activeLabelEl.textContent = "Selected (Unsaved)";
+    activeLabelEl.className = "preset-runtime-badge unsaved";
+  }
+}
+
+export function updateDirtyState(isDirty: boolean, problems = 0): void {
+  const statusEl = $<HTMLElement>("#saveStatus");
+  const topStatusEl = $<HTMLElement>("#saveTopStatus");
+  if (problems > 0) {
+    const text = "Unsaved changes (" + problems + " error" + (problems === 1 ? "" : "s") + ")";
+    statusEl.textContent = text;
+    statusEl.className = "save-status-badge err";
+    topStatusEl.textContent = text;
+    topStatusEl.className = "save-status-badge err";
+  } else if (isDirty) {
+    statusEl.textContent = "Unsaved changes";
+    statusEl.className = "save-status-badge dirty";
+    topStatusEl.textContent = "Unsaved changes";
+    topStatusEl.className = "save-status-badge dirty";
+  } else {
+    statusEl.textContent = "Saved";
+    statusEl.className = "save-status-badge ok";
+    topStatusEl.textContent = "Saved";
+    topStatusEl.className = "save-status-badge ok";
+  }
+}
+
+export function updatePresetState(currentPreset: Settings["selectedPreset"]): void {
+  const selectedLabel = PRESET_BY_ID[currentPreset]?.label ?? currentPreset;
+  const savedLabel = PRESET_BY_ID[lastSavedPreset]?.label ?? lastSavedPreset;
+  $<HTMLElement>("#selectedPresetState").textContent = selectedLabel;
+  $<HTMLElement>("#savedPresetState").textContent = savedLabel;
+
+  const { settings } = readForm();
+  const isSaved = currentPreset === lastSavedPreset && settingsSnapshotKey(settings) === lastSavedSettingsKey;
+  renderPresetSummary(currentPreset, isSaved);
+}
+
+export function checkDirty(): void {
+  const { settings, problems } = readForm();
+  const currentKey = settingsSnapshotKey(settings);
+  const isDirty = currentKey !== lastSavedSettingsKey;
+  updateDirtyState(isDirty, problems);
+  updatePresetState(settings.selectedPreset);
+}
+
+function toggleDefaultDims(): void {
+  const defaultEditor = $<HTMLElement>("#defaultDimEditor");
+  const btn = $<HTMLButtonElement>("#toggleDefaultDims");
+  if (defaultEditor.classList.contains("collapsed")) {
+    defaultEditor.classList.remove("collapsed");
+    btn.textContent = "Hide Default preset dimensions";
+  } else {
+    defaultEditor.classList.add("collapsed");
+    btn.textContent = "Show Default preset dimensions";
+  }
+}
+
 /** Keeps the preset description and the dimension-count note in sync with the selector. */
-function renderPreset(): void {
+export function renderPreset(): void {
   const id = $<HTMLSelectElement>("#preset").value as keyof typeof PRESET_BY_ID;
   const p = PRESET_BY_ID[id];
   $("#presetNote").textContent = p ? `${p.description} (${p.dimensions.length} dimensions)` : "";
   const note = $("#dimNote");
+  const defaultNotice = $<HTMLElement>("#defaultDimNotice");
+  const defaultEditor = $<HTMLElement>("#defaultDimEditor");
+  const badge = $<HTMLElement>("#dimensionsPresetBadge");
+
   if (id === "default") {
     note.textContent = "These are the dimensions currently in use.";
+    defaultNotice.style.display = "none";
+    defaultEditor.classList.remove("collapsed");
+    badge.textContent = "Active for Default preset";
+    badge.className = "preset-badge active";
   } else {
     note.textContent = `The ${p?.label ?? id} preset is in use. These dimensions are kept for the Default preset and are used again when you switch back.`;
+    defaultNotice.style.display = "block";
+    defaultEditor.classList.add("collapsed");
+    $<HTMLButtonElement>("#toggleDefaultDims").textContent = "Show Default preset dimensions";
+    badge.textContent = "Inactive (Default only)";
+    badge.className = "preset-badge inactive";
   }
+  updatePresetState(id);
 }
 
 async function renderArticleAccess(): Promise<void> {
@@ -112,7 +235,10 @@ function dimCard(d: Dimension): HTMLElement {
   };
   $(".d-type", card).addEventListener("change", refreshHint);
   $(".d-levels", card).addEventListener("input", refreshHint);
-  $(".d-remove", card).addEventListener("click", () => card.remove());
+  $(".d-remove", card).addEventListener("click", () => {
+    card.remove();
+    checkDirty();
+  });
   refreshHint();
   return card;
 }
@@ -132,7 +258,7 @@ function levelsOf(card: HTMLElement): string[] {
     .filter(Boolean);
 }
 
-function readDims(): { dims: Dimension[]; problems: number } {
+export function readDims(): { dims: Dimension[]; problems: number } {
   const dims: Dimension[] = [];
   let problems = 0;
   const seen = new Set<string>();
@@ -163,7 +289,7 @@ function readDims(): { dims: Dimension[]; problems: number } {
   return { dims, problems };
 }
 
-function readForm(): { settings: Settings; problems: number } {
+export function readForm(): { settings: Settings; problems: number } {
   const { dims, problems } = readDims();
   const settings = normalizeSettings({
     apiKey: $<HTMLInputElement>("#apiKey").value,
@@ -224,14 +350,60 @@ function renderAbout(): void {
   $("#aboutTarget").textContent = browserTarget(manifest);
 }
 
-async function main(): Promise<void> {
+export async function performSave(): Promise<boolean> {
+  const { settings, problems } = readForm();
+  if (problems) {
+    const msg = "fix " + problems + " problem" + (problems === 1 ? "" : "s") + " above";
+    flash($("#saveOut"), msg, "err");
+    flash($("#saveTopOut"), msg, "err");
+    updateDirtyState(true, problems);
+    return false;
+  }
+  try {
+    await saveSettings(settings);
+    lastSavedSettingsKey = settingsSnapshotKey(settings);
+    lastSavedPreset = settings.selectedPreset;
+    updateDirtyState(false);
+    updatePresetState(settings.selectedPreset);
+    flash($("#saveOut"), "saved", "ok");
+    flash($("#saveTopOut"), "saved", "ok");
+    setTimeout(() => {
+      if ($("#saveOut").textContent === "saved") flash($("#saveOut"), "", "muted");
+      if ($("#saveTopOut").textContent === "saved") flash($("#saveTopOut"), "", "muted");
+    }, 2000);
+    notifySettingsChanged();
+    return true;
+  } catch (err) {
+    const msg = "failed: " + (err as Error).message;
+    flash($("#saveOut"), msg, "err");
+    flash($("#saveTopOut"), msg, "err");
+    $<HTMLElement>("#saveStatus").textContent = "Save failed";
+    $<HTMLElement>("#saveStatus").className = "save-status-badge err";
+    $<HTMLElement>("#saveTopStatus").textContent = "Save failed";
+    $<HTMLElement>("#saveTopStatus").className = "save-status-badge err";
+    return false;
+  }
+}
+
+export async function initOptions(): Promise<void> {
+  initDomRefs();
   renderPresetOptions();
   fillForm(await loadSettings());
   await renderStats();
   renderAbout();
 
-  $("#preset").addEventListener("change", () => renderPreset());
-  $("#analyzeReplies").addEventListener("change", () => renderReplyState());
+  $("#preset").addEventListener("change", () => {
+    renderPreset();
+    checkDirty();
+  });
+  $("#analyzeReplies").addEventListener("change", () => {
+    renderReplyState();
+    checkDirty();
+  });
+  $("#toggleDefaultDims").addEventListener("click", () => toggleDefaultDims());
+  const wrap = $("#wrap");
+  wrap.addEventListener("input", () => checkDirty());
+  wrap.addEventListener("change", () => checkDirty());
 
   $("#grantArticle").addEventListener("click", async () => {
     const out = $("#articleAccessOut");
@@ -278,21 +450,16 @@ async function main(): Promise<void> {
         enabled: true,
       }),
     );
+    checkDirty();
   });
 
-  $("#resetDims").addEventListener("click", () => renderDims(DEFAULT_DIMENSIONS));
-
-  $("#save").addEventListener("click", async () => {
-    const { settings, problems } = readForm();
-    if (problems) {
-      flash($("#saveOut"), `fix ${problems} problem${problems === 1 ? "" : "s"} above`, "err");
-      return;
-    }
-    await saveSettings(settings);
-    flash($("#saveOut"), "saved", "ok");
-    setTimeout(() => flash($("#saveOut"), "", "muted"), 2000);
-    notifySettingsChanged();
+  $("#resetDims").addEventListener("click", () => {
+    renderDims(DEFAULT_DIMENSIONS);
+    checkDirty();
   });
+
+  $("#save").addEventListener("click", () => void performSave());
+  $("#saveTop").addEventListener("click", () => void performSave());
 
   $("#test").addEventListener("click", async () => {
     const out = $("#testOut");
@@ -327,4 +494,6 @@ async function main(): Promise<void> {
   });
 }
 
-void main();
+if (typeof document !== "undefined") {
+  void initOptions();
+}

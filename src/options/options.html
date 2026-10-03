@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
-    <main class="wrap">
+    <main class="wrap" id="wrap">
       <header>
         <h1>x-scanner</h1>
         <p class="sub">
@@ -90,6 +90,30 @@
           </label>
         </div>
         <p id="presetNote" class="muted"></p>
+
+        <div id="presetSummary" class="preset-summary">
+          <div class="preset-summary-head">
+            <div class="preset-summary-title">
+              <strong id="presetSummaryName"></strong>
+              <span id="presetSummaryBadge" class="preset-badge"></span>
+            </div>
+            <span id="presetSummaryActiveLabel" class="preset-runtime-badge"></span>
+          </div>
+          <p id="presetSummaryDesc" class="preset-summary-desc muted"></p>
+          <div id="presetSummaryDims" class="preset-dims-chips"></div>
+        </div>
+
+        <div class="preset-state-bar">
+          <div class="preset-state-chips">
+            <span class="preset-state-tag">Selected: <b id="selectedPresetState">Default</b></span>
+            <span class="preset-state-tag">Saved: <b id="savedPresetState">Default</b></span>
+          </div>
+          <div class="preset-save-cluster">
+            <button id="saveTop" type="button" class="primary">Save</button>
+            <span id="saveTopStatus" class="save-status-badge ok">Saved</span>
+            <span id="saveTopOut" class="muted"></span>
+          </div>
+        </div>
       </section>
 
       <section>
@@ -112,18 +136,33 @@
         </div>
       </section>
 
-      <section>
-        <h2>Dimensions</h2>
+      <section id="dimensionsSection">
+        <div class="section-title-row">
+          <h2>Dimensions</h2>
+          <span id="dimensionsPresetBadge" class="preset-badge"></span>
+        </div>
         <p class="muted">
           Each dimension is one typed question. All of them ride in the same request. A flag shows only when the answer
           crosses its threshold. Thresholds, labels, direction and color are display policy and never re-bill a post.
           Editing a question or the model does.
         </p>
         <p id="dimNote" class="muted"></p>
+
+        <div id="defaultDimNotice" class="default-dim-notice" style="display: none;">
+          <p class="default-dim-notice-text">
+            Default dimensions are preserved and will be used again when you switch back to Default.
+          </p>
+          <button id="toggleDefaultDims" type="button" class="ghost toggle-dims-btn">
+            Show Default preset dimensions
+          </button>
+        </div>
+
+        <div id="defaultDimEditor" class="dim-editor-container">
         <div id="dimList"></div>
         <div class="actions">
           <button id="addDim" type="button">Add dimension</button>
           <button id="resetDims" type="button" class="ghost">Reset to defaults</button>
+        </div>
         </div>
       </section>
 
@@ -151,8 +190,11 @@
       </section>
 
       <footer class="savebar">
-        <button id="save" type="button" class="primary">Save</button>
-        <span id="saveOut" class="muted"></span>
+        <div class="savebar-inner">
+          <button id="save" type="button" class="primary">Save</button>
+          <span id="saveStatus" class="save-status-badge ok">Saved</span>
+          <span id="saveOut" class="muted"></span>
+        </div>
       </footer>
     </main>
     <template id="dimTemplate">
