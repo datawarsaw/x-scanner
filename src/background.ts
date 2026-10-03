@@ -1,7 +1,7 @@
 // Service worker. The only place that holds the API key and talks to Jev.
 // The content script sends tweet state; this returns typed answers plus exact token usage.
 import type { AnalyzeReply, ArticleState, FetchArticleReply, LifetimeStats, Message, TweetState } from "./shared/types.ts";
-import { loadSettings, onSettingsChange, STATS_KEY } from "./shared/settings.ts";
+import { loadSettings, onSettingsChange, SETTINGS_CHANGED, SETTINGS_PORT, STATS_KEY } from "./shared/settings.ts";
 import { buildQuestions } from "./shared/questions.ts";
 import { callJev, costUsd, JevError } from "./shared/jev.ts";
 import { PRESET_BY_ID, activeQuestions } from "./shared/presets.ts";
@@ -12,8 +12,44 @@ const SAMPLE: TweetState = {
 };
 
 let settingsPromise = loadSettings();
+/**
+ * Live X tabs holding a settings port. Ports need no extra manifest permissions (unlike
+ * tabs.query/tabs.sendMessage fan-out), work in both the Chromium service worker and the
+ * Firefox event-page background, and die with the tab so no stale-tab bookkeeping is needed.
+ */
+const settingsPorts = new Set<chrome.runtime.Port>();
+
+/** Relay an invalidation signal to every live X tab; each tab re-reads storage itself. */
+function broadcastSettingsChanged(): void {
+  for (const port of Array.from(settingsPorts)) {
+    try {
+      port.postMessage({ type: SETTINGS_CHANGED });
+    } catch {
+      try {
+        port.disconnect();
+      } catch {
+        /* already gone */
+      }
+      settingsPorts.delete(port);
+    }
+  }
+}
+
+try {
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== SETTINGS_PORT) return;
+    settingsPorts.add(port);
+    port.onDisconnect.addListener(() => {
+      settingsPorts.delete(port);
+    });
+  });
+} catch {
+  /* chrome.runtime unavailable under node/tests; analyze path is unaffected */
+}
+
 onSettingsChange((s) => {
   settingsPromise = Promise.resolve(s);
+  broadcastSettingsChanged();
 });
 
 chrome.action.onClicked.addListener(() => {
@@ -29,6 +65,12 @@ async function handle(msg: Message): Promise<unknown> {
   switch (msg.type) {
     case "openOptions":
       await chrome.runtime.openOptionsPage();
+      return { ok: true };
+    case "settingsChanged":
+      // Explicit Save signal from Options. Re-read storage (source of truth) in case this
+      // background missed the storage event too, then relay the invalidation to live X tabs.
+      settingsPromise = loadSettings();
+      broadcastSettingsChanged();
       return { ok: true };
     case "testConnection":
       return analyze(SAMPLE);

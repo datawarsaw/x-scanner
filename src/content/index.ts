@@ -1,6 +1,6 @@
 // Content script entry. Wires the watcher, scheduler, cache, HUD and renderer together.
 import type { AnalysisResult, AnalyzeReply, ArticleState, Settings, TweetState, Verdict } from "../shared/types.ts";
-import { loadSettings, onSettingsChange } from "../shared/settings.ts";
+import { loadSettings, onSettingsChange, SETTINGS_CHANGED, SETTINGS_PORT, settingsSnapshotKey } from "../shared/settings.ts";
 import { questionsHash } from "../shared/questions.ts";
 import { extractTweet, isReply, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
 import { routeStatusId, shouldAnalyzePost } from "./route.ts";
@@ -571,8 +571,75 @@ async function boot(): Promise<void> {
   if (document.documentElement.dataset[flag]) return;
   document.documentElement.dataset[flag] = "1";
   installDetailHandler();
-  apply(await loadSettings());
-  onSettingsChange(apply);
+  const initial = await loadSettings();
+  lastSettingsSnapshot = settingsSnapshotKey(initial);
+  apply(initial);
+  // storage.onChanged stays as a fallback (sufficient in Chromium); the port invalidation below
+  // is the deterministic path in Firefox/Zen. Both funnel through one deduped refresh.
+  onSettingsChange(() => void refreshSettingsFromStorage());
+  connectSettingsLiveRefresh();
+}
+
+/**
+ * Last applied settings identity. Storage is re-read on every signal (source of truth) and the
+ * snapshot key makes a duplicate signal — storage event plus port invalidation for the same Save —
+ * a cheap no-op instead of a second re-render. Concurrent signals are benign on top of this:
+ * App.updateSettings is idempotent for identical settings (same schema hash skips the slot loop).
+ */
+let lastSettingsSnapshot = "";
+
+async function refreshSettingsFromStorage(): Promise<void> {
+  let next: Settings;
+  try {
+    next = await loadSettings();
+  } catch {
+    return;
+  }
+  const key = settingsSnapshotKey(next);
+  if (key === lastSettingsSnapshot) return;
+  lastSettingsSnapshot = key;
+  apply(next);
+}
+
+/**
+ * Long-lived settings port to the background. Needs no extra manifest permissions, works in both
+ * browser targets, and reconnects on disconnect (service-worker suspension, extension reload
+ * races) with a bounded event-driven retry — no polling, no page reload, no script reinjection.
+ */
+function connectSettingsLiveRefresh(): void {
+  let disposed = false;
+  let port: chrome.runtime.Port | null = null;
+  let timer: number | null = null;
+  const schedule = (): void => {
+    if (disposed || timer !== null) return;
+    timer = window.setTimeout(() => {
+      timer = null;
+      connect();
+    }, 1000);
+  };
+  const connect = (): void => {
+    if (disposed) return;
+    try {
+      port = chrome.runtime.connect({ name: SETTINGS_PORT });
+    } catch {
+      port = null;
+      schedule();
+      return;
+    }
+    try {
+      port.onMessage.addListener((msg: unknown) => {
+        if ((msg as { type?: string } | null)?.type === SETTINGS_CHANGED) void refreshSettingsFromStorage();
+      });
+      port.onDisconnect.addListener(() => {
+        port = null;
+        schedule();
+      });
+    } catch {
+      port = null;
+      schedule();
+    }
+  };
+  connect();
 }
 
 void boot();

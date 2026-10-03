@@ -1,6 +1,6 @@
 // Options page. Reads settings into the form, writes the form back on Save.
 import type { AnalyzeReply, Dimension, Settings } from "../shared/types.ts";
-import { loadSettings, loadStats, normalizeSettings, saveSettings, STATS_KEY } from "../shared/settings.ts";
+import { loadSettings, loadStats, normalizeSettings, notifySettingsChanged, saveSettings, STATS_KEY } from "../shared/settings.ts";
 import { DEFAULT_DIMENSIONS, validateDimension } from "../shared/questions.ts";
 import { answerValue } from "../content/labels.ts";
 import { PRESETS, PRESET_BY_ID } from "../shared/presets.ts";
@@ -291,6 +291,7 @@ async function main(): Promise<void> {
     await saveSettings(settings);
     flash($("#saveOut"), "saved", "ok");
     setTimeout(() => flash($("#saveOut"), "", "muted"), 2000);
+    notifySettingsChanged();
   });
 
   $("#test").addEventListener("click", async () => {
@@ -302,6 +303,7 @@ async function main(): Promise<void> {
     }
     await saveSettings(settings);
     flash(out, "calling Jev…", "muted");
+    notifySettingsChanged();
     const reply = (await chrome.runtime.sendMessage({ type: "testConnection" })) as AnalyzeReply;
     if (!reply.ok) {
       flash(out, `failed: ${reply.error}`, "err");

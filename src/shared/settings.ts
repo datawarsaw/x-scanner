@@ -5,6 +5,17 @@ import { isPresetId } from "./presets.ts";
 
 export const SETTINGS_KEY = "settings";
 export const STATS_KEY = "stats";
+/**
+ * Live-refresh invalidation channel (v0.6.3).
+ *
+ * Chromium delivers storage.onChanged to an already-open X tab, but Firefox/Zen does not do so
+ * reliably for writes made by the Options page. The deterministic path is therefore an explicit
+ * refresh signal: Options Save persists to storage, the background relays an invalidation, and
+ * the X content script re-reads storage (the single source of truth) and applies it.
+ * storage.onChanged stays registered as a fallback; both paths funnel through one deduped refresh.
+ */
+export const SETTINGS_PORT = "x-scanner-settings";
+export const SETTINGS_CHANGED = "settingsChanged" as const;
 /** v1: dwell 200 ms. v2: dwell 0, 800 px look-ahead. v3: scope all of X. v4: about_jev. v5: jevpilled, flag colors. */
 /** v6: presets, article analysis, thread context, session fields. */
 /** v7: replies and comments are skipped unless the reader opts in. */
@@ -132,6 +143,25 @@ export async function loadSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   await chrome.storage.local.set({ [SETTINGS_KEY]: normalizeSettings(settings) });
+}
+
+/** Stable identity of the last applied settings, so a duplicate refresh signal is a cheap no-op. */
+export function settingsSnapshotKey(s: Settings): string {
+  return JSON.stringify(s);
+}
+
+/**
+ * Fire-and-forget invalidation after Save. Storage stays the source of truth; this message only
+ * tells the background to relay "re-read storage" to live X tabs. Never throws and never blocks
+ * the "saved" feedback on a missing listener (tests, reload races, invalidated contexts).
+ */
+export function notifySettingsChanged(): void {
+  try {
+    const r = chrome.runtime.sendMessage({ type: SETTINGS_CHANGED });
+    (r as unknown as Promise<unknown> | undefined)?.catch?.(() => {});
+  } catch {
+    /* no listening background; storage write above already persisted the settings */
+  }
 }
 
 export function onSettingsChange(cb: (settings: Settings) => void): () => void {

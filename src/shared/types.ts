@@ -219,7 +219,9 @@ export type Message =
   | { type: "analyzeArticle"; article: ArticleState }
   | { type: "fetchArticle"; url: string }
   | { type: "testConnection" }
-  | { type: "openOptions" };
+  | { type: "openOptions" }
+  /** Live-refresh invalidation: storage stays the source of truth, this only says "re-read it". */
+  | { type: "settingsChanged" };
 
 export type FetchArticleReply =
   | { ok: true; html: string; finalUrl: string }
