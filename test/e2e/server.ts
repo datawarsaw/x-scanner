@@ -41,6 +41,8 @@ export function fakeAnswers(
   overrides: AnswerOverrides = {},
 ) {
   const t = state.text.toLowerCase();
+  /** Text-driven low-signal fixture row: every Signal v2 score lands near the bottom of its rubric. */
+  const lowSignal = /thinking out loud/.test(t);
   const v = { info_density: 1.0, engagement_bait: 0.08, promotion: 0.1, secondhand: 0.2, padding: 0.5, about_jev: 0.03 };
   if (/typesafe|jev 1\.|system one/.test(t)) v.about_jev = 0.96;
   if (/rt if|follow me|bookmark this|wrong answers only|轉發|追蹤/.test(t)) v.engagement_bait = 0.97;
@@ -58,7 +60,7 @@ export function fakeAnswers(
   for (const [id, q] of Object.entries(questions)) {
     const val = (v as Record<string, number>)[id] ?? 0.1;
     if (q?.type === "score") {
-      answers[id] = { type: "score", score: overrides.scores?.[id] ?? SIGNAL_V2_SCORES[id] ?? val, confidence: 0.9, probabilities: {}, legend: {} };
+      answers[id] = { type: "score", score: overrides.scores?.[id] ?? (lowSignal ? 0.4 : SIGNAL_V2_SCORES[id] ?? val), confidence: 0.9, probabilities: {}, legend: {} };
     } else if (q?.type === "choice") {
       const optionIds = Object.keys((q.criteria as Record<string, string>) ?? {});
       const probabilities: Record<string, number> = {};

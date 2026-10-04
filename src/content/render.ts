@@ -72,6 +72,7 @@ export function clearSlot(slot: HTMLElement): void {
   slot.dataset.state = "idle";
   delete slot.dataset.verdict;
   delete slot.dataset.display;
+  delete slot.dataset.warn;
   slot.title = "";
   slot.style.removeProperty("--xs-flag");
   slot.classList.remove("xs-in");
@@ -88,6 +89,7 @@ export function fillSlot(slot: HTMLElement, vs: Verdict[], r: AnalysisResult, mo
     return;
   }
   slot.dataset.display = "raw";
+  delete slot.dataset.warn;
   slot.textContent = "";
   slot.dataset.state = "done";
   slot.title = "";
@@ -133,34 +135,45 @@ export function fillSlot(slot: HTMLElement, vs: Verdict[], r: AnalysisResult, mo
   requestAnimationFrame(() => slot.classList.add("xs-in"));
 }
 
+/** The two Signal v2 filter dimensions the compact row may hide or escalate. */
+const FILTER_IDS = new Set(["promotion", "engagement_bait"]);
+/** A filter below this shared-0..100 level is omitted from the compact row entirely. */
+const FILTER_SILENCE = 40;
+/** A filter at or above this level turns the rail amber and its own value amber. */
+const FILTER_ESCALATION = 70;
+
 /**
- * The Signal v2 row: what the post is about, then the four signal components, then the two filters,
- * kept in dimension order so the row reads the same way every time. Values carry no unit on purpose:
- * a rubric level and a probability share this range without meaning the same thing. The detail card
- * is where the raw semantics live. The flag marker still marks whatever crossed a threshold, which
- * in Signal v2 is normally only the two filters.
+ * The Signal v2 row (B2): what the post is about, then the four signal components, then the two
+ * filters, kept in dimension order so the row reads the same way every time. Values carry no unit
+ * on purpose: a rubric level and a probability share this range without meaning the same thing.
+ * Filters are quiet marginalia: below 40 a filter is omitted, 40-69 reads as a neutral metric, and
+ * at 70+ only the elevated filter values turn amber while the rail itself goes amber. There is
+ * deliberately no success state: a high-signal post is information, not a reward. The detail card
+ * keeps every raw value, suppressed or not.
  */
 function fillCompact(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): void {
   slot.textContent = "";
   slot.dataset.state = "done";
   slot.title = "";
   slot.dataset.display = "normalized";
+  slot.style.removeProperty("--xs-flag");
   data.set(slot, { vs, r, mode: "normalized" });
-  const hits = vs.filter((v) => v.show);
-  slot.dataset.verdict = hits.length ? "flag" : "clean";
-  const tint = hits.find((v) => v.color)?.color;
-  if (tint) slot.style.setProperty("--xs-flag", tint);
-  else slot.style.removeProperty("--xs-flag");
+  const escalated = vs
+    .filter((v) => FILTER_IDS.has(v.id) && normalized(v) >= FILTER_ESCALATION)
+    .map((v) => v.id);
+  slot.dataset.verdict = escalated.length ? "warn" : "neutral";
+  if (escalated.length) slot.dataset.warn = escalated.join(" ");
+  else delete slot.dataset.warn;
   const parts: HTMLElement[] = [];
-  if (hits.length === 0) parts.push(span("xs-ok", "✓ clean"));
   for (const v of vs) {
     if (v.type === "choice") {
       if (v.choice) parts.push(span("xs-topic", v.choice.label));
       continue;
     }
-    const el = span(v.show ? "xs-flag" : "xs-dim", (v.show && v === hits[0] ? "⚑ " : "") + v.short + " " + normalized(v));
+    const value = normalized(v);
+    if (FILTER_IDS.has(v.id) && value < FILTER_SILENCE) continue;
+    const el = span(escalated.includes(v.id) ? "xs-warn" : "xs-dim", v.short + " " + value);
     el.dataset.dim = v.id;
-    if (v.show && v.color) el.style.color = v.color;
     parts.push(el);
   }
   parts.forEach((el, i) => {

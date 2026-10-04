@@ -94,18 +94,20 @@ test("signal v2: topic leads the row, values share one range, and details keep t
   const row = await page.evaluate(() => {
     const art = Array.from(document.querySelectorAll("article")).find((a) => (a.textContent || "").includes("Scheduler latency dropped"));
     const slot = art?.querySelector(".xs-slot") as HTMLElement | null;
-    const els = Array.from(slot?.querySelectorAll(".xs-dim, .xs-flag") ?? []).map((e) => (e.textContent || "").trim());
+    const els = Array.from(slot?.querySelectorAll(".xs-dim, .xs-warn") ?? []).map((e) => (e.textContent || "").trim());
     return {
       display: slot?.dataset.display,
       topic: slot?.querySelector(".xs-topic")?.textContent ?? null,
       clean: Boolean(slot?.querySelector(".xs-ok")),
+      warn: slot?.dataset.warn ?? null,
       values: els,
     };
   });
   assert.equal(row.display, "normalized");
   assert.equal(row.topic, "AI", "the topic anchors the row");
-  assert.equal(row.clean, true, "nothing in the fixture crosses a threshold");
-  assert.deepEqual(row.values, ["density 80", "insight 60", "evidence 70", "actionable 50", "promo 10", "bait 8"]);
+  assert.equal(row.clean, false, "a normal post is information, not a success state");
+  assert.equal(row.warn, null, "no filter escalated");
+  assert.deepEqual(row.values, ["density 80", "insight 60", "evidence 70", "actionable 50"], "the two quiet filters are omitted");
 
   await page.evaluate(() => {
     (document.querySelector('.xs-slot[data-tweet-id="8101"]') as HTMLElement | null)?.click();

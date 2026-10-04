@@ -252,10 +252,14 @@ carries, and whether it is pushing something or fishing for engagement.
    market post, a personal update, and something promotional.
 4. Read the Topic token that leads each row. It must describe the post's actual subject rather than a passing
    mention, and it is never presented as a quality judgment.
-5. Read the six components: density, insight, evidence, actionable, promo, bait. They share a 0-100 range.
-   Check the values against the post in front of you rather than against the topic in general.
+5. Read the row: the topic leads, then density, insight, evidence, actionable on one shared 0-100
+   range. Promo and bait are quiet marginalia on the thin left rail: below 40 they are omitted
+   entirely, 40-69 renders as a neutral gray metric, and at 70 the rail turns amber and only the
+   elevated filter value (promo, bait, or both) is highlighted amber. A high-signal post gets no
+   green or success styling. Check the values against the post in front of you rather than against
+   the topic in general.
 6. Open Details. It must list the topic plus exactly six numeric components, and jevpilled, secondhand and
-   filler must be absent.
+   filler must be absent. Promo and bait must be there even when the row suppressed them (below 40).
 7. In Details, confirm every component keeps its raw semantics under the shared range: a score shows
    Raw score: n / 3 beneath n / 100, and a noul shows Probability true: n%. Confirm the topic lists its
    candidate topics when Jev returned a distribution, and that no overall signal score appears anywhere.

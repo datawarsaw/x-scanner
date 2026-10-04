@@ -150,19 +150,28 @@ test("options -> save -> runtime: the preset the reader saved decides what the n
     return {
       display: slot?.dataset.display ?? null,
       verdict: slot?.dataset.verdict ?? null,
+      warn: slot?.dataset.warn ?? null,
       topic: slot?.querySelector(".xs-topic")?.textContent ?? null,
-      chips: Array.from(slot?.querySelectorAll(".xs-dim, .xs-flag") ?? []).map(chip),
-      flagged: Array.from(slot?.querySelectorAll(".xs-flag") ?? []).map((e) => (e as HTMLElement).dataset.dim ?? ""),
+      chips: Array.from(slot?.querySelectorAll(".xs-dim, .xs-warn") ?? []).map(chip),
+      chipClasses: Array.from(slot?.querySelectorAll(".xs-dim, .xs-warn") ?? []).map((e) => (e as HTMLElement).dataset.dim + "=" + e.className),
       text: slot?.textContent ?? "",
     };
   });
   assert.equal(row.display, "normalized");
   assert.equal(row.topic, "AI");
   // The compact row prints the shared 0..100 range, never the rubric level it was derived from.
-  assert.deepEqual(row.chips, ["density 100", "insight 0", "evidence 0", "actionable 33", "promo 4", "bait 56"]);
-  // Raw 3.0 of 3 is past the 2.5 score threshold and flags; raw 0.56 is under 0.75 and does not.
-  assert.equal(row.verdict, "flag");
-  assert.deepEqual(row.flagged, ["information_density"]);
+  assert.deepEqual(row.chips, ["density 100", "insight 0", "evidence 0", "actionable 33", "bait 56"]);
+  // Promo 4 is below the silence threshold, so it disappears; bait 56 is mid-range and stays a
+  // quiet neutral metric, exactly like the signal dimensions.
+  assert.equal(row.warn, null, "no filter reached the escalation threshold");
+  assert.equal(row.verdict, "neutral");
+  assert.deepEqual(row.chipClasses, [
+    "information_density=xs-dim",
+    "original_insight=xs-dim",
+    "evidence=xs-dim",
+    "actionable=xs-dim",
+    "engagement_bait=xs-dim",
+  ], "mid-range bait is never amber");
   for (const gone of ["fact-dense", "secondhand", "filler", "jevpilled", "3/3", "1.0"]) assert.equal(row.text.includes(gone), false, gone);
 
   // The detail card keeps the raw semantics under the shared range.
@@ -267,10 +276,10 @@ test("guard: a preset with its own dimensions still runs when every editable dim
   const hud = await page.evaluate(() => ({
     message: document.querySelector(".xs-hud-msg")?.textContent ?? "",
     title: document.querySelector(".xs-hud-title")?.textContent ?? "",
-    chips: document.querySelectorAll('.xs-slot[data-state="done"] .xs-dim, .xs-slot[data-state="done"] .xs-flag, .xs-slot[data-state="done"] .xs-topic').length,
+    chips: document.querySelectorAll('.xs-slot[data-state="done"] .xs-dim, .xs-slot[data-state="done"] .xs-warn, .xs-slot[data-state="done"] .xs-topic').length,
   }));
   assert.equal(/No dimensions enabled/.test(hud.message), false, hud.message);
   assert.match(hud.title, /Signal v2/);
-  assert.ok(hud.chips >= 7, String(hud.chips));
+  assert.ok(hud.chips >= 6, String(hud.chips));
   assert.deepEqual(errors, []);
 });

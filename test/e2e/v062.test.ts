@@ -169,14 +169,16 @@ test("live preset refresh: switching preset in Options updates open tab without 
     return {
       display: slot?.dataset.display ?? null,
       verdict: slot?.dataset.verdict ?? null,
+      warn: slot?.dataset.warn ?? null,
       topic: slot?.querySelector(".xs-topic")?.textContent ?? null,
-      chips: Array.from(slot?.querySelectorAll(".xs-dim, .xs-flag") ?? []).map(chip),
+      chips: Array.from(slot?.querySelectorAll(".xs-dim, .xs-warn") ?? []).map(chip),
       text: slot?.textContent ?? "",
     };
   }, V2_POST_TEXT);
   assert.equal(rowV2.display, "normalized");
   assert.equal(rowV2.topic, "AI");
-  assert.deepEqual(rowV2.chips, ["density 100", "insight 0", "evidence 0", "actionable 33", "promo 4", "bait 56"]);
+  assert.deepEqual(rowV2.chips, ["density 100", "insight 0", "evidence 0", "actionable 33", "bait 56"], "promo 4 is silenced, bait 56 stays neutral");
+  assert.equal(rowV2.warn, null);
 
   // Switch back to Default through Options without reloading X
   await savePresetThroughOptions(ctx, extId, "default");

@@ -69,6 +69,54 @@
   display: none;
 }
 
+/*
+ * Signal v2 compact row (B2): editorial marginalia, not a chip. A 1.5px rail on the left edge,
+ * transparent background, no card geometry, no icon. The renderer omits filters under 40 and marks
+ * the slot data-warn when a filter reaches 70; only the rail and those values change color.
+ */
+.xs-slot[data-display="normalized"] {
+  --xs-rail: rgba(255, 255, 255, 0.16);
+  --xs-warn: #fbbf24;
+  min-height: 24px;
+  margin: 6px 0 8px;
+  padding: 2px 8px 2px 10px;
+  border: none;
+  border-left: 1.5px solid var(--xs-rail);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12.5px;
+  line-height: 19px;
+  gap: 2px 6px;
+  transition: opacity 260ms ease, color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+.xs-slot[data-display="normalized"][data-warn] {
+  --xs-rail: rgba(245, 158, 11, 0.85);
+}
+.xs-slot[data-display="normalized"] .xs-topic {
+  color: #e7e9ea;
+  opacity: 0.95;
+  font-weight: 600;
+  font-size: 13px;
+}
+.xs-slot[data-display="normalized"] .xs-warn {
+  color: var(--xs-warn);
+  font-weight: 600;
+}
+.xs-slot[data-display="normalized"]:hover {
+  --xs-rail: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.03);
+}
+.xs-slot[data-display="normalized"][data-warn]:hover {
+  --xs-rail: #f59e0b;
+}
+.xs-slot[data-display="normalized"]:hover .xs-topic {
+  opacity: 1;
+}
+.xs-slot[data-display="normalized"]:hover .xs-dim {
+  opacity: 0.9;
+}
+
 /* Detail card: opens under the slot on click. */
 .xs-detail {
   position: absolute;
