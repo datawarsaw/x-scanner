@@ -4,7 +4,7 @@ Development-only. Do not publish this build to AMO. Do not put a TypeSafe API ke
 
 Chromium uses a background service worker. Firefox and Zen use an MV3 event-page background script because Firefox does not
 run background.service_worker for this extension. The Firefox manifest sets browser_specific_settings.gecko.id to
-x-scanner@whitegull.ai so reloading the temporary add-on keeps the same extension identity, and therefore your settings and cache. Do not change this id: it is the permanent identity used for signed installs and any later public listing.
+x-scanner@datawarsaw.com so reloading the temporary add-on keeps the same extension identity, and therefore your settings and cache. Do not change this id: it is the permanent identity used for signed installs and any later public listing.
 
 ## 1. Build
 
@@ -23,7 +23,7 @@ The loadable artifact is dist-firefox/. Optional zip:
 2. Go to about:debugging#/runtime/this-firefox
 3. Under This Firefox, click Load Temporary Add-on.
 4. Select dist-firefox/manifest.json
-5. Confirm x-scanner appears with id x-scanner@whitegull.ai and the background script is running. Temporary add-ons need no signing.
+5. Confirm x-scanner appears with id x-scanner@datawarsaw.com and the background script is running. Temporary add-ons need no signing.
 
 If you reload the add-on after rebuilding, load the same dist-firefox/manifest.json again.
 

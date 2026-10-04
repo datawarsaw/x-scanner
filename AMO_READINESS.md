@@ -97,7 +97,7 @@ Run npm run validate:artifacts to check both generated manifests and the require
 ## Manifest metadata
 
 - manifest_version 3
-- browser_specific_settings.gecko.id is x-scanner@whitegull.ai, the permanent identity for signed installs and any later listing. Do not change it after the first signed build. Verify control of the whitegull.ai domain before submission; if it is not controlled, replace with a GUID-style id before signing.
+- browser_specific_settings.gecko.id is x-scanner@datawarsaw.com, the permanent identity for signed installs and any later listing. Do not change it after the first signed build. The operator controls the datawarsaw.com domain.
 - strict_min_version 128.0, the first Firefox that understands optional_host_permissions, which article access uses
 - homepage_url points at the upstream repository
 

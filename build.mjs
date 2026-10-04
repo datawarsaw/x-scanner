@@ -15,10 +15,9 @@ export const TARGETS = ["chromium", "firefox"];
  * temporary loading, signed unlisted installs, and a later public AMO listing.
  * Do not change this after the first signed build: changing it creates a new
  * extension identity and drops existing settings and caches.
- * Verify control of the whitegull.ai domain before submission; if it is not
- * controlled, replace with a GUID-style id before the first signed build.
+ * The operator controls the datawarsaw.com domain.
  */
-export const FIREFOX_GECKO_ID = "x-scanner@whitegull.ai";
+export const FIREFOX_GECKO_ID = "x-scanner@datawarsaw.com";
 /** 128 is the first Firefox that understands optional_host_permissions, which article analysis needs. */
 export const FIREFOX_STRICT_MIN_VERSION = "128.0";
 /**

@@ -9,7 +9,7 @@ Fill in against the final v0.6.3 revision, then paste into the GitHub release an
 ## Firefox / Zen
 
 - Temporary development install from `dist-firefox/`; signed unlisted XPI attached when available (see docs/FIREFOX_SIGNING.md). No public AMO listing yet.
-- Extension id `x-scanner@whitegull.ai`, strict_min_version 128.0.
+- Extension id `x-scanner@datawarsaw.com`, strict_min_version 128.0.
 
 ## Signal v2
 

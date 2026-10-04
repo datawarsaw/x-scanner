@@ -16,7 +16,7 @@ npm run validate:artifacts
 npm run package:firefox
 ```
 
-Record the file name, size, version, extension id (`x-scanner@whitegull.ai`), and build sha shown by the build. Keep the zip; it is the file you upload.
+Record the file name, size, version, extension id (`x-scanner@datawarsaw.com`), and build sha shown by the build. Keep the zip; it is the file you upload.
 
 ## 2. Mozilla Add-ons developer account
 
@@ -43,7 +43,7 @@ Mozilla signs the approved build and makes a signed `.xpi` available in the hub.
 
 1. Restart the browser. Confirm the extension is still installed and enabled (unlisted signed installs persist; temporary add-ons do not).
 2. Open x-scanner settings, About: confirm version, build sha, and browser target Firefox.
-3. Confirm the extension id is `x-scanner@whitegull.ai`.
+3. Confirm the extension id is `x-scanner@datawarsaw.com`.
 4. Scroll x.com with a test key and confirm analysis, caching, and the session panel behave as in ZEN_TEST.md.
 
 ## 7. Attach to the GitHub release

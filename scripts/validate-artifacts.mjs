@@ -68,8 +68,8 @@ function assertFirefox(manifest, dir) {
   if (manifest.background?.service_worker && !scripts?.length) {
     fail(`${dir}: Firefox artifact relies solely on service_worker`);
   }
-  if (manifest.browser_specific_settings?.gecko?.id !== "x-scanner@whitegull.ai") {
-    fail(`${dir}: missing stable gecko id x-scanner@whitegull.ai`);
+  if (manifest.browser_specific_settings?.gecko?.id !== "x-scanner@datawarsaw.com") {
+    fail(`${dir}: missing stable gecko id x-scanner@datawarsaw.com`);
   }
   const dcp = manifest.browser_specific_settings?.gecko?.data_collection_permissions;
   if (!dcp || !Array.isArray(dcp.required) || !dcp.required.includes("websiteContent") || !dcp.required.includes("authenticationInfo")) {

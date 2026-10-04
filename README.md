@@ -33,7 +33,7 @@ The row leads with the topic, then puts all six components on one shared 0-100 d
 
 Firefox and Zen run the `dist-firefox/` build. During development it loads as a temporary add-on from `about:debugging#/runtime/this-firefox`; that install disappears when the browser restarts. A signed unlisted build installs permanently and is covered in `docs/FIREFOX_SIGNING.md`. There is no public AMO listing yet; do not expect to find this extension in the store.
 
-Firefox uses an MV3 event-page background script (`background.scripts`) because Firefox does not run `background.service_worker` for this extension. Application code is shared with Chromium; only the generated manifest differs. The Firefox manifest carries a stable extension id (`x-scanner@whitegull.ai`), `strict_min_version` 128.0, and a `data_collection_permissions` declaration (see PRIVACY.md).
+Firefox uses an MV3 event-page background script (`background.scripts`) because Firefox does not run `background.service_worker` for this extension. Application code is shared with Chromium; only the generated manifest differs. The Firefox manifest carries a stable extension id (`x-scanner@datawarsaw.com`), `strict_min_version` 128.0, and a `data_collection_permissions` declaration (see PRIVACY.md).
 
 ## Chromium
 
