@@ -88,7 +88,7 @@ test("B2 rail: neutral marginalia, filter silence, amber escalation, placement, 
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto(base + "/annotation.html");
   await page.waitForFunction(
-    () => document.querySelectorAll('.xs-slot[data-state="done"][data-display="normalized"]').length >= 7,
+    () => document.querySelectorAll('.xs-slot[data-state="done"][data-display="normalized"]').length >= 8,
     null,
     { timeout: 20000 },
   );
@@ -170,19 +170,114 @@ test("B2 rail: neutral marginalia, filter silence, amber escalation, placement, 
   assert.equal(quote.prev, "tweetText");
   assert.equal(quote.nextIsQuote, true, "directly before the quote card");
 
-  // 8. The detail view stays clickable and keeps the values the row suppressed.
+  // 8. Video post: the row sits between the text and the video player container.
+  const video = await page.evaluate(() => {
+    const slot = document.querySelector('.xs-slot[data-tweet-id="8208"]');
+    return {
+      prev: slot?.previousElementSibling?.getAttribute("data-testid") ?? null,
+      next: slot?.nextElementSibling?.getAttribute("data-testid") ?? null,
+    };
+  });
+  assert.deepEqual(video, { prev: "tweetText", next: "videoPlayer" }, "no collision with the video player");
+
+  // 9. The detail view stays clickable, renders in portal overlay root, and keeps suppressed values.
   await page.evaluate(() => {
     (document.querySelector('.xs-slot[data-tweet-id="8201"]') as HTMLElement | null)?.click();
   });
   await page.waitForSelector(".xs-detail");
-  const detail = await page.evaluate(() => {
+  const textDetail = await page.evaluate(() => {
     const card = document.querySelector(".xs-detail");
-    return Array.from(card?.querySelectorAll(".xs-detail-row") ?? []).map((r) => ({
-      k: r.querySelector(".xs-detail-k")?.textContent ?? "",
-      v: r.querySelector(".xs-detail-v")?.textContent ?? "",
-    }));
+    const root = document.getElementById("xs-overlay-root");
+    return {
+      isParentOverlayRoot: card?.parentElement === root,
+      rows: Array.from(card?.querySelectorAll(".xs-detail-row") ?? []).map((r) => ({
+        k: r.querySelector(".xs-detail-k")?.textContent ?? "",
+        v: r.querySelector(".xs-detail-v")?.textContent ?? "",
+      })),
+    };
   });
-  assert.deepEqual(detail[4], { k: "promo", v: "10 / 100" }, "suppressed promo remains in the detail view");
-  assert.deepEqual(detail[5], { k: "engagement bait", v: "8 / 100" }, "suppressed bait remains in the detail view");
+  assert.equal(textDetail.isParentOverlayRoot, true, "detail panel rendered into #xs-overlay-root portal");
+  assert.deepEqual(textDetail.rows[4], { k: "promo", v: "10 / 100" }, "suppressed promo remains in the detail view");
+  assert.deepEqual(textDetail.rows[5], { k: "engagement bait", v: "8 / 100" }, "suppressed bait remains in the detail view");
+
+  // Close by clicking slot 8201 again
+  await page.evaluate(() => {
+    (document.querySelector('.xs-slot[data-tweet-id="8201"]') as HTMLElement | null)?.click();
+  });
+  await page.waitForFunction(() => !document.querySelector(".xs-detail"));
+
+  // 10. Video post detail layering: detail renders strictly ON TOP of the video layer, not underneath.
+  await page.evaluate(() => {
+    (document.querySelector('.xs-slot[data-tweet-id="8208"]') as HTMLElement | null)?.click();
+  });
+  await page.waitForSelector(".xs-detail");
+  const videoLayerCheck = await page.evaluate(() => {
+    const card = document.querySelector(".xs-detail") as HTMLElement | null;
+    if (!card) return null;
+    const rect = card.getBoundingClientRect();
+    const elAtPoint = document.elementFromPoint(rect.left + 20, rect.top + 20);
+    return {
+      isDetailOnTop: elAtPoint === card || card.contains(elAtPoint),
+      elementTag: elAtPoint?.tagName,
+      elementClass: elAtPoint?.className,
+      elementId: elAtPoint?.id,
+    };
+  });
+  assert.equal(videoLayerCheck?.isDetailOnTop, true, "detail panel is geometrically on top of native X video player");
+
+  // 11. Photo post detail layering: detail renders above tweetPhoto
+  await page.evaluate(() => {
+    (document.querySelector('.xs-slot[data-tweet-id="8206"]') as HTMLElement | null)?.click();
+  });
+  await page.waitForSelector(".xs-detail");
+  const photoLayerCheck = await page.evaluate(() => {
+    const card = document.querySelector(".xs-detail") as HTMLElement | null;
+    if (!card) return null;
+    const rect = card.getBoundingClientRect();
+    const elAtPoint = document.elementFromPoint(rect.left + 20, rect.top + 20);
+    return {
+      isDetailOnTop: elAtPoint === card || card.contains(elAtPoint),
+    };
+  });
+  assert.equal(photoLayerCheck?.isDetailOnTop, true, "detail panel is on top of tweetPhoto");
+
+  // 12. Quote post detail layering: detail renders above quote card
+  await page.evaluate(() => {
+    (document.querySelector('.xs-slot[data-tweet-id="8207"]') as HTMLElement | null)?.click();
+  });
+  await page.waitForSelector(".xs-detail");
+  const quoteLayerCheck = await page.evaluate(() => {
+    const card = document.querySelector(".xs-detail") as HTMLElement | null;
+    if (!card) return null;
+    const rect = card.getBoundingClientRect();
+    const elAtPoint = document.elementFromPoint(rect.left + 20, rect.top + 20);
+    return {
+      isDetailOnTop: elAtPoint === card || card.contains(elAtPoint),
+    };
+  });
+  assert.equal(quoteLayerCheck?.isDetailOnTop, true, "detail panel is on top of quote card");
+
+  // 13. Escape key closes detail
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector(".xs-detail"));
+
+  // 14. Scrolling closes detail panel deterministically (no detached floating overlay)
+  await page.evaluate(() => {
+    (document.querySelector('.xs-slot[data-tweet-id="8201"]') as HTMLElement | null)?.click();
+  });
+  await page.waitForSelector(".xs-detail");
+  await page.evaluate(() => window.scrollBy(0, 50));
+  await page.waitForFunction(() => !document.querySelector(".xs-detail"));
+
+  // 15. Repeated toggles produce no duplicate overlay roots and clean up completely
+  for (let i = 0; i < 4; i++) {
+    await page.evaluate(() => (document.querySelector('.xs-slot[data-tweet-id="8201"]') as HTMLElement | null)?.click());
+    await page.waitForSelector(".xs-detail");
+    await page.evaluate(() => (document.querySelector('.xs-slot[data-tweet-id="8201"]') as HTMLElement | null)?.click());
+    await page.waitForFunction(() => !document.querySelector(".xs-detail"));
+  }
+  const rootCount = await page.evaluate(() => document.querySelectorAll("#xs-overlay-root").length);
+  assert.equal(rootCount, 1, "exactly one overlay root exists across repeated toggles");
+
   assert.deepEqual(errors, []);
 });

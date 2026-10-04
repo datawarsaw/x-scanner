@@ -169,12 +169,16 @@ test("a high-signal post gets no green, orange, or aggregate treatment of any ki
   );
 });
 
-test("the detail card still opens on click and keeps values the row suppressed", () => {
+test("the detail card still opens on click into overlay portal and keeps values the row suppressed", () => {
   render.installDetailHandler();
   const r = row(answers({ promo: 0.1, bait: 0.08 }));
   r.slot.click();
-  const card = r.slot.querySelector(".xs-detail")!;
-  assert.ok(card, "detail card opened from the compact row");
+  const card = dom.window.document.querySelector(".xs-detail")!;
+  assert.ok(card, "detail card opened from the compact row into overlay portal");
+  assert.equal(r.slot.querySelector(".xs-detail"), null, "detail is in overlay root, not inside slot");
+  const overlayRoot = dom.window.document.getElementById(render.OVERLAY_ROOT_ID);
+  assert.ok(overlayRoot, "overlay root exists");
+  assert.equal(card.parentElement, overlayRoot, "card parent is overlay root");
   const rows = Array.from(card.querySelectorAll(".xs-detail-row")).map((el) => ({
     k: el.querySelector(".xs-detail-k")?.textContent ?? "",
     v: el.querySelector(".xs-detail-v")?.textContent ?? "",
@@ -182,7 +186,7 @@ test("the detail card still opens on click and keeps values the row suppressed",
   assert.deepEqual(rows[4], { k: "promo", v: "10 / 100" }, "suppressed promo is still in the detail view");
   assert.deepEqual(rows[5], { k: "engagement bait", v: "8 / 100" }, "suppressed bait is still in the detail view");
   r.slot.click();
-  assert.equal(r.slot.querySelector(".xs-detail"), null, "second click closes the card");
+  assert.equal(dom.window.document.querySelector(".xs-detail"), null, "second click closes the card");
 });
 
 test("complex placement: the slot sits after the outer text, before quote and media cards, never inside them", () => {
@@ -208,4 +212,99 @@ test("complex placement: the slot sits after the outer text, before quote and me
   const mSlot = render.ensureSlot(mediaArticle, "8302");
   assert.equal(mSlot.previousElementSibling?.matches('[data-testid="tweetText"]'), true);
   assert.equal(mSlot.nextElementSibling?.matches('[data-testid="tweetPhoto"]'), true, "before the media card");
+});
+
+test("video post: slot sits before video player and detail opens into overlay portal", () => {
+  const videoArticle = dom.window.document.createElement("article");
+  videoArticle.innerHTML =
+    '<div data-testid="User-Name"><a href="/c/status/8303"><time>1h</time></a></div>' +
+    '<div data-testid="tweetText"><span>Watch demo video.</span></div>' +
+    '<div data-testid="videoPlayer"><video></video></div>' +
+    '<div role="group"><button>reply</button></div>';
+  dom.window.document.body.appendChild(videoArticle);
+  const vSlot = render.ensureSlot(videoArticle, "8303");
+  assert.equal(vSlot.nextElementSibling?.matches('[data-testid="videoPlayer"]'), true, "before the video player");
+  render.fillSlot(vSlot, [], RESULT, "normalized");
+  vSlot.click();
+  const card = dom.window.document.querySelector(".xs-detail");
+  assert.ok(card, "detail opens in overlay root");
+  assert.equal(vSlot.querySelector(".xs-detail"), null, "detail is not inside slot");
+  assert.equal(videoArticle.querySelector(".xs-detail"), null, "detail is not inside tweet article");
+  render.closeDetail();
+});
+
+test("positionDetail: clamps to viewport edges and flips above when space below is insufficient", () => {
+  const dummySlot = dom.window.document.createElement("div");
+  const dummyCard = dom.window.document.createElement("div");
+  dummyCard.className = "xs-detail";
+  dom.window.document.body.appendChild(dummySlot);
+  dom.window.document.body.appendChild(dummyCard);
+  try {
+    // Mock getBoundingClientRect
+    // Case 1: Normal placement below slot
+    dummySlot.getBoundingClientRect = () => ({ top: 100, bottom: 130, left: 100, right: 200, width: 100, height: 30, x: 100, y: 100 } as DOMRect);
+    dummyCard.getBoundingClientRect = () => ({ top: 0, bottom: 150, left: 0, right: 236, width: 236, height: 150, x: 0, y: 0 } as DOMRect);
+    render.positionDetail(dummySlot, dummyCard);
+    assert.equal(dummyCard.style.left, "100px");
+    assert.equal(dummyCard.style.top, "136px"); // 130 + 6
+
+    // Case 2: Right viewport edge clamp (vw in jsdom defaults to 1024, margin = 8, width = 236 -> max left = 1024 - 8 - 236 = 780)
+    dummySlot.getBoundingClientRect = () => ({ top: 100, bottom: 130, left: 900, right: 1000, width: 100, height: 30, x: 900, y: 100 } as DOMRect);
+    render.positionDetail(dummySlot, dummyCard);
+    assert.equal(dummyCard.style.left, "780px");
+
+    // Case 3: Left viewport edge clamp (left < 8 -> left = 8)
+    dummySlot.getBoundingClientRect = () => ({ top: 100, bottom: 130, left: 2, right: 102, width: 100, height: 30, x: 2, y: 100 } as DOMRect);
+    render.positionDetail(dummySlot, dummyCard);
+    assert.equal(dummyCard.style.left, "8px");
+
+    // Case 4: Insufficient space below (vh in jsdom is 768; spaceBelow = 768 - 750 - 14 = 4 < 150; slot.top = 720, spaceAbove = 706 >= 150)
+    dummySlot.getBoundingClientRect = () => ({ top: 720, bottom: 750, left: 100, right: 200, width: 100, height: 30, x: 100, y: 720 } as DOMRect);
+    render.positionDetail(dummySlot, dummyCard);
+    assert.equal(dummyCard.style.top, "564px"); // 720 - 6 - 150 = 564
+  } finally {
+    dummySlot.remove();
+    dummyCard.remove();
+  }
+});
+
+test("detail panel closes on Escape key, click outside, and leaves no stale overlay or duplicate roots", () => {
+  const r = row(answers({ promo: 0.1, bait: 0.08 }));
+  r.slot.click();
+  assert.ok(dom.window.document.querySelector(".xs-detail"), "detail open");
+  
+  // Press Escape
+  dom.window.document.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape" }));
+  assert.equal(dom.window.document.querySelector(".xs-detail"), null, "Escape key closed detail");
+
+  // Open again and click outside
+  r.slot.click();
+  assert.ok(dom.window.document.querySelector(".xs-detail"), "detail open again");
+  dom.window.document.body.click();
+  assert.equal(dom.window.document.querySelector(".xs-detail"), null, "click outside closed detail");
+
+  // Open and close repeatedly: verify exactly 1 overlay root exists
+  for (let i = 0; i < 5; i++) {
+    r.slot.click();
+    assert.ok(dom.window.document.querySelector(".xs-detail"));
+    r.slot.click();
+    assert.equal(dom.window.document.querySelector(".xs-detail"), null);
+  }
+  const roots = dom.window.document.querySelectorAll("#" + render.OVERLAY_ROOT_ID);
+  assert.equal(roots.length, 1, "exactly one overlay root exists across repeated toggles");
+});
+
+test("B2 row presentation and classes remain untouched by portal detail", () => {
+  const r = row(answers({ promo: 0.95 }));
+  assert.equal(r.slot.classList.contains("xs-slot"), true);
+  assert.equal(r.slot.dataset.display, "normalized");
+  assert.equal(r.slot.dataset.verdict, "warn");
+  assert.equal(r.slot.dataset.warn, "promotion");
+  // Click to open detail
+  r.slot.click();
+  // B2 row itself must not change
+  assert.equal(r.slot.classList.contains("xs-slot"), true);
+  assert.equal(r.slot.dataset.display, "normalized");
+  assert.equal(r.slot.dataset.verdict, "warn");
+  render.closeDetail();
 });

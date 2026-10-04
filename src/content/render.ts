@@ -12,7 +12,16 @@ export type SlotState = "idle" | "queued" | "inflight" | "done" | "error" | "ski
 export type DisplayMode = "raw" | "normalized";
 
 const data = new WeakMap<HTMLElement, { vs: Verdict[]; r: AnalysisResult; mode: DisplayMode }>();
+export const OVERLAY_ROOT_ID = "xs-overlay-root";
+export const DETAIL_GAP = 6;
+export const VIEWPORT_MARGIN = 8;
+export const DEFAULT_DETAIL_WIDTH = 236;
+export const DEFAULT_DETAIL_HEIGHT = 180;
+export const SCROLL_THRESHOLD = 15;
+
+let openSlot: HTMLElement | null = null;
 let openDetail: HTMLElement | null = null;
+let cleanupDetailListeners: (() => void) | null = null;
 
 /**
  * Put the verdict line right under the post's text (after X's own "Show more" link when there is
@@ -68,6 +77,9 @@ export function markSlot(slot: HTMLElement, state: SlotState, title?: string): v
 }
 
 export function clearSlot(slot: HTMLElement): void {
+  if (openSlot === slot) {
+    closeDetail();
+  }
   slot.textContent = "";
   slot.dataset.state = "idle";
   delete slot.dataset.verdict;
@@ -191,6 +203,16 @@ function span(cls: string, text: string): HTMLElement {
   return el;
 }
 
+export function getOverlayRoot(): HTMLElement {
+  let root = document.getElementById(OVERLAY_ROOT_ID);
+  if (!root) {
+    root = document.createElement("div");
+    root.id = OVERLAY_ROOT_ID;
+    (document.body || document.documentElement).appendChild(root);
+  }
+  return root;
+}
+
 /** One document level listener: click a slot to toggle its detail card, click anywhere else to close. */
 export function installDetailHandler(): void {
   document.addEventListener(
@@ -211,20 +233,69 @@ export function installDetailHandler(): void {
       e.preventDefault();
       const d = data.get(slot);
       if (!d) return;
-      const already = slot.querySelector(".xs-detail");
+      const isSameSlot = openSlot === slot;
       closeDetail();
-      if (!already) openDetailFor(slot, d.vs, d.r, d.mode);
+      if (!isSameSlot) openDetailFor(slot, d.vs, d.r, d.mode);
     },
     true,
   );
 }
 
 export function closeDetail(): void {
+  if (cleanupDetailListeners) {
+    cleanupDetailListeners();
+    cleanupDetailListeners = null;
+  }
   openDetail?.remove();
   openDetail = null;
+  openSlot = null;
+}
+
+export function positionDetail(slot: HTMLElement, card: HTMLElement): void {
+  const slotRect = slot.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+
+  const docEl = document.documentElement;
+  const vw = window.innerWidth || docEl?.clientWidth || 1000;
+  const vh = window.innerHeight || docEl?.clientHeight || 800;
+
+  const cardWidth = cardRect.width || card.offsetWidth || DEFAULT_DETAIL_WIDTH;
+  const cardHeight = cardRect.height || card.offsetHeight || DEFAULT_DETAIL_HEIGHT;
+
+  let left = slotRect.left;
+  if (vw > 2 * VIEWPORT_MARGIN && cardWidth > vw - 2 * VIEWPORT_MARGIN) {
+    card.style.maxWidth = `${vw - 2 * VIEWPORT_MARGIN}px`;
+  }
+  if (left + cardWidth > vw - VIEWPORT_MARGIN) {
+    left = vw - VIEWPORT_MARGIN - cardWidth;
+  }
+  if (left < VIEWPORT_MARGIN) {
+    left = VIEWPORT_MARGIN;
+  }
+
+  const spaceBelow = vh - (slotRect.bottom + DETAIL_GAP + VIEWPORT_MARGIN);
+  const spaceAbove = slotRect.top - DETAIL_GAP - VIEWPORT_MARGIN;
+
+  let top: number;
+  if (spaceBelow < cardHeight && spaceAbove >= cardHeight) {
+    top = slotRect.top - DETAIL_GAP - cardHeight;
+  } else if (spaceBelow < cardHeight && spaceAbove > spaceBelow) {
+    top = Math.max(VIEWPORT_MARGIN, slotRect.top - DETAIL_GAP - cardHeight);
+  } else {
+    top = slotRect.bottom + DETAIL_GAP;
+    if (top + cardHeight > vh - VIEWPORT_MARGIN) {
+      top = Math.max(VIEWPORT_MARGIN, vh - VIEWPORT_MARGIN - cardHeight);
+    }
+  }
+
+  card.style.left = `${Math.round(left)}px`;
+  card.style.top = `${Math.round(top)}px`;
 }
 
 function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult, mode: DisplayMode): void {
+  if (openDetail) {
+    closeDetail();
+  }
   const card = document.createElement("div");
   card.className = "xs-detail";
   card.dataset.display = mode;
@@ -259,8 +330,44 @@ function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult, mode
   foot.className = "xs-detail-foot";
   foot.textContent = `${r.inputTokens} tok · $${r.costUsd.toFixed(6)} · ${r.latencyMs} ms · ${r.model}`;
   card.appendChild(foot);
-  slot.appendChild(card);
+  const root = getOverlayRoot();
+  root.appendChild(card);
   openDetail = card;
+  openSlot = slot;
+
+  positionDetail(slot, card);
+
+  const initialScrollY = window.scrollY;
+  const initialScrollX = window.scrollX;
+
+  const onScroll = () => {
+    if (
+      Math.abs(window.scrollY - initialScrollY) > SCROLL_THRESHOLD ||
+      Math.abs(window.scrollX - initialScrollX) > SCROLL_THRESHOLD
+    ) {
+      closeDetail();
+    }
+  };
+
+  const onResize = () => {
+    closeDetail();
+  };
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      closeDetail();
+    }
+  };
+
+  window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+  window.addEventListener("resize", onResize, { passive: true });
+  document.addEventListener("keydown", onKeyDown);
+
+  cleanupDetailListeners = () => {
+    window.removeEventListener("scroll", onScroll, { capture: true });
+    window.removeEventListener("resize", onResize);
+    document.removeEventListener("keydown", onKeyDown);
+  };
 }
 
 /** A categorical row: the chosen label, then the candidate distribution when Jev returned one. */

@@ -14,6 +14,9 @@
   [data-testid="tweetText"] a { color:#1d9bf0; }
   div[role="link"] { border:1px solid #2f3336; border-radius:16px; padding:12px; margin-top:10px; }
   [data-testid="tweetPhoto"] { border:1px solid #2f3336; border-radius:16px; margin-top:10px; height:120px; background:#16181c; }
+  [data-testid="videoPlayer"] { position:relative; z-index:0; border:1px solid #2f3336; border-radius:16px; margin-top:10px; height:180px; background:#16181c; overflow:hidden; }
+  [data-testid="videoPlayer"] video { width:100%; height:100%; object-fit:cover; }
+  .video-overlay { position:absolute; top:0; left:0; right:0; bottom:0; z-index:1; display:flex; align-items:center; justify-content:center; color:#71767b; }
   div[role="group"] { display:flex; justify-content:space-between; max-width:420px; color:#71767b; padding:6px 0 4px; font-size:13px; }
 </style>
 </head>
@@ -76,6 +79,15 @@
       <div data-testid="User-Name"><a href="/grace"><span>Grace</span></a><a href="/grace/status/8207"><time datetime="2026-10-04T09:00:00Z">1h</time></a></div>
       <div data-testid="tweetText"><span>Worth reading.</span></div>
       <div role="link" tabindex="0"><div data-testid="User-Name"><a href="/heidi"><span>Heidi</span></a><a href="/heidi/status/8299"><time datetime="2026-10-03T10:00:00Z">Oct 3</time></a></div><div data-testid="tweetText"><span>Quoted wisdom here, which is not a reply and must still be analyzed.</span></div></div>
+      <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
+    </div>
+  </article></div>
+  <div data-testid="cellInnerDiv"><article data-testid="tweet" role="article" tabindex="0">
+    <div class="avatar"></div>
+    <div class="col">
+      <div data-testid="User-Name"><a href="/hank"><span>Hank</span></a><a href="/hank/status/8208"><time datetime="2026-10-04T09:00:00Z">1h</time></a></div>
+      <div data-testid="tweetText"><span>Watch demo video of the new telemetry pipeline.</span></div>
+      <div data-testid="videoPlayer"><video></video><div class="video-overlay" id="video-overlay-8208">▶ Play Video</div></div>
       <div role="group" aria-label="actions"><button>reply</button><button>repost</button><button>like</button></div>
     </div>
   </article></div>
