@@ -1,6 +1,6 @@
 # Release notes template (first public release candidate)
 
-Do not finalize the version until the v0.6.1 hardening work is merged. Fill in, then paste into the GitHub release and (later) the AMO version notes. No unverified claims.
+Fill in against the final v0.6.3 revision, then paste into the GitHub release and (later) the AMO version notes. No unverified claims.
 
 ## Highlights
 

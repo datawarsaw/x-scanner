@@ -4,7 +4,7 @@ How to obtain a signed unlisted build for permanent local installation in Firefo
 
 ## Prerequisites
 
-- The release revision is tagged and final (v0.6.1 smoke test passed, privacy review done, README final, screenshots final).
+- The release revision is tagged and final (v0.6.3 smoke test passed, privacy review done, README final, screenshots final).
 - Node 22 or newer, clean checkout, no local modifications.
 
 ## 1. Build and package the final artifact

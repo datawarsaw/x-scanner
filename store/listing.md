@@ -15,9 +15,9 @@ x-scanner runs a behavioral read on every post you scroll past on X, judged by J
 One model, and shows you exactly what it cost.
 
 Each post is sent to Jev with six typed questions in one request as it comes near your viewport. The
-answer comes back in about 150 ms as numbers, not prose, and lands in a small chip under the post: a
+answer comes back in about 150 ms as numbers, not prose, and lands in a small row under the post: a
 green check when nothing crossed a threshold, or a flag with its value when something did. Click the
-chip for every value. A panel in the corner counts posts analyzed, dollars spent to four decimals, the
+row for every value. A panel in the corner counts posts analyzed, dollars spent to four decimals, the
 last call's latency and judgments per second.
 
 The six dimensions, all editable:
@@ -58,7 +58,7 @@ average latency, flagged counts, which dimensions showed up, and the top-scoring
 Signal v2 it also shows the topic distribution and the average of each component. It costs no extra API calls.
 
 No server, no analytics. Only the post text goes to api.typesafe.ai. Your key stays in this browser's
-extension storage. Open source: https://github.com/oso95/x-scanner
+extension storage. Open source: <repo-url> (publish the fork first, then paste the exact URL here; do not point at the upstream repository as the fork homepage)
 
 **Category**: Social & Communication
 
@@ -78,7 +78,7 @@ extension storage. Open source: https://github.com/oso95/x-scanner
   and only after the user presses Analyze article on that post. This permission is optional, is not
   requested at install, can be revoked in settings, and is never used for any other purpose.
 - Content script on `https://x.com/*` and `https://twitter.com/*`: reads the text of posts on screen
-  and inserts the result chip and the corner panel.
+  and inserts the result row and the corner panel.
 
 **Remote code**: none. All code ships in the package.
 
@@ -97,22 +97,23 @@ extension storage. Open source: https://github.com/oso95/x-scanner
 - Not collected: personally identifiable information, health, financial, location, web history, user
   activity, personal communications.
 
-**Privacy policy URL**: https://github.com/oso95/x-scanner/blob/main/PRIVACY.md
+**Privacy policy URL**: <repo-url>/blob/main/PRIVACY.md (publish the repository first, then paste the exact URL here)
 
 ## Assets
 
 - Icon: `icons/128.png` (also inside the package).
-- Screenshots (1280×800): `store/screenshot-1.png` timeline with flags and the panel,
-  `store/screenshot-2.png` the detail card, `store/screenshot-3.png` settings. Regenerate with
-  `npm run screenshots`. They are captured on the test fixture, which mimics X's markup, so no real
-  user's posts appear in the listing.
+- Screenshots (1280×800), all with the Signal v2 preset selected: `store/screenshot-1.png` Signal v2
+  timeline, `store/screenshot-2.png` Signal v2 detail card, `store/screenshot-3.png` settings with
+  Signal v2 selected, `store/screenshot-4.png` session intelligence, `store/screenshot-5.png` native
+  X Article analysis. Regenerate with `npm run screenshots`. They are captured on the test fixture,
+  which mimics X's markup, so no real user's posts appear in the listing.
 - Promo tiles are optional; none are provided.
 
 ## Publishing steps
 
 1. Register at https://chrome.google.com/webstore/devconsole with a Google account (one-time $5 fee).
 2. `npm run package` produces `x-scanner-<version>.zip`. Upload it as a new item.
-3. Fill the store listing and privacy practices tabs from this file, upload the three screenshots,
+3. Fill the store listing and privacy practices tabs from this file, upload the five screenshots,
    set the privacy policy URL, pick "Public" visibility.
 4. Submit for review. Reviews for extensions with host permissions on a major site usually take a few
    days; expect a question about why the extension needs x.com if the single purpose text is unclear.

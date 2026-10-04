@@ -2,7 +2,7 @@
 
 Separate from the signed unlisted install (docs/FIREFOX_SIGNING.md). Public listing happens only after all of these are true:
 
-- Final v0.6.1 smoke test passed on a clean build.
+- Final v0.6.3 smoke test passed on a clean build.
 - Privacy review re-done against the shipped build (PRIVACY.md matches behavior, TypeSafe statements still accurate).
 - Final screenshots regenerated from the fixture after any UI change (store/SCREENSHOT_PLAN.md).
 - README, store/firefox-listing.md, and AMO_REVIEW.md match the shipped revision.
