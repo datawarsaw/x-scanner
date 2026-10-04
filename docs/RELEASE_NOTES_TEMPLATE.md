@@ -1,6 +1,6 @@
 # Release notes template (first public release candidate)
 
-Fill in against the final v0.6.3 revision, then paste into the GitHub release and (later) the AMO version notes. No unverified claims.
+Fill in against the final v0.6.4 revision, then paste into the GitHub release and (later) the AMO version notes. No unverified claims.
 
 ## Highlights
 

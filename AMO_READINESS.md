@@ -3,7 +3,7 @@
 Preparation notes for a future addons.mozilla.org submission. **This is not a claim of compliance.** Nothing here has been
 reviewed by Mozilla, and the extension has not been submitted. Status below is stated as observed on the date shown.
 
-Last reviewed: 2026-10-04 against v0.6.3 of this repository (release reconciliation pass: version metadata, screenshots, packaging, Firefox lint, embedded build identity). Version references below track package.json and must be re-checked at release time.
+Last reviewed: 2026-10-05 against v0.6.4 of this repository (release-prep pass: version metadata, release notes, packaging, Firefox lint, embedded build identity). Version references below track package.json and must be re-checked at release time.
 
 ## Permissions
 
@@ -85,7 +85,7 @@ computed locally and never leave the device.
 
     npm ci
     npm run build:firefox     # dist-firefox/
-    npm run package:firefox   # x-scanner-0.6.3-firefox.zip (name tracks package.json version)
+    npm run package:firefox   # x-scanner-0.6.4-firefox.zip (name tracks package.json version)
 
 The shipped artifact contains only background.js, content.js, options.js, the two stylesheets, the settings page, icons, and a
 generated manifest.json. Sources are plain TypeScript under src/; the only build step is esbuild via build.mjs, with no

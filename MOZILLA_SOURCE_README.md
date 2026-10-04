@@ -1,10 +1,12 @@
 # X-Scanner — Mozilla reviewer build instructions
 
 ## Extension
-X-Scanner 0.6.3
+X-Scanner 0.6.4
 
 ## Source revision
-01176ee0cfebac8853cedcfaa9e48c6c95d9fb46
+The 0.6.4 release-prep commit: the commit that sets version 0.6.4 in package.json and src/manifest.json.
+The build SHA is resolved from git HEAD at bundle time, so it cannot be pinned inside that same commit.
+The official 0.6.4 build was produced at this revision; its short SHA is printed by the build and shown in the extension About panel.
 
 ## Environment
 - Tested OS: Windows 11 (build uses only Node + esbuild, no OS-specific steps)
@@ -36,9 +38,10 @@ After `npm run build:firefox` it contains:
 `manifest.json`, `background.js`, `content.js`, `options.js`, `options.html`, `options.css`, `content.css`, `icons/16.png`, `icons/32.png`, `icons/48.png`, `icons/128.png`.
 
 ## Build identity
-The build embeds version 0.6.3 (taken from `src/manifest.json` via the generated `dist-firefox/manifest.json`) and build SHA `01176ee`.
+The build embeds version 0.6.4 (taken from `src/manifest.json` via the generated `dist-firefox/manifest.json`).
 The SHA is resolved at bundle time by `gitBuildSha()` in `build.mjs` via `git rev-parse --short HEAD` and substituted as `__XS_BUILD_SHA__` by esbuild.
 It is display-only (settings/footer version label) and falls back to `"unknown"` when built from a plain source export without `.git` history; runtime behavior is otherwise identical.
+This expected difference applies to this archive: a build from this export without git history shows `unknown`.
 
 ## Notes
 TypeScript sources in `src/` are bundled/transpiled with esbuild (`npm run build:firefox`) into the final extension JavaScript.
