@@ -210,3 +210,32 @@ test("6. existing preset persistence and disclosure control toggle work", async 
   await optionsModule.performSave();
   assert.equal(storageData.settings?.selectedPreset, "signal_v2");
 });
+
+test("7. Show analysis HUD checkbox: unchecked by default, dirty on toggle, persists on save", async () => {
+  const doc = dom.window.document;
+  const hudCheck = doc.querySelector<HTMLInputElement>("#showAnalysisHud")!;
+  assert.ok(hudCheck, "showAnalysisHud input exists");
+  assert.equal(hudCheck.checked, false, "unchecked by default");
+  assert.equal(doc.querySelector("#saveStatus")?.textContent, "Saved");
+
+  // Toggle ON
+  hudCheck.checked = true;
+  hudCheck.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+
+  assert.equal(doc.querySelector("#saveStatus")?.textContent, "Unsaved changes");
+
+  // Save
+  const ok = await optionsModule.performSave();
+  assert.equal(ok, true);
+  assert.equal(doc.querySelector("#saveStatus")?.textContent, "Saved");
+  assert.equal(storageData.settings?.showAnalysisHud, true);
+
+  // Toggle back OFF
+  hudCheck.checked = false;
+  hudCheck.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  assert.equal(doc.querySelector("#saveStatus")?.textContent, "Unsaved changes");
+
+  const okOff = await optionsModule.performSave();
+  assert.equal(okOff, true);
+  assert.equal(storageData.settings?.showAnalysisHud, false);
+});

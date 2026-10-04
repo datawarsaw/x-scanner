@@ -36,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cacheMax: 5000,
   dimensions: DEFAULT_DIMENSIONS,
   selectedPreset: "default",
+  showAnalysisHud: false,
   articleAnalysisEnabled: true,
   threadContextMode: "quoted",
   maxArticleChars: 8000,
@@ -76,6 +77,7 @@ export function normalizeSettings(raw: unknown): Settings {
     dimensions: dims,
     // Whitelisted by the preset table, so a new preset is accepted without editing this line.
     selectedPreset: isPresetId(r.selectedPreset) ? r.selectedPreset : "default",
+    showAnalysisHud: typeof r.showAnalysisHud === "boolean" ? r.showAnalysisHud : false,
     articleAnalysisEnabled: typeof r.articleAnalysisEnabled === "boolean" ? r.articleAnalysisEnabled : true,
     threadContextMode: r.threadContextMode === "off" || r.threadContextMode === "parent" || r.threadContextMode === "thread" ? r.threadContextMode : "quoted",
     maxArticleChars: clamp(Number(r.maxArticleChars), 1000, 40000, DEFAULT_SETTINGS.maxArticleChars),

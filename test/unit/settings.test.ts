@@ -34,6 +34,16 @@ test("replies are skipped by default and only turn on when explicitly set", () =
   assert.equal(normalizeSettings({ analyzeReplies: "yes" }).analyzeReplies, false);
 });
 
+test("showAnalysisHud defaults to false and resolves missing legacy values to false", () => {
+  assert.equal(DEFAULT_SETTINGS.showAnalysisHud, false);
+  assert.equal(normalizeSettings(undefined).showAnalysisHud, false);
+  assert.equal(normalizeSettings({}).showAnalysisHud, false);
+  assert.equal(normalizeSettings({ version: 6 }).showAnalysisHud, false);
+  assert.equal(normalizeSettings({ showAnalysisHud: true }).showAnalysisHud, true);
+  assert.equal(normalizeSettings({ showAnalysisHud: false }).showAnalysisHud, false);
+  assert.equal(normalizeSettings({ showAnalysisHud: "yes" }).showAnalysisHud, false);
+});
+
 test("a pre-v7 install gains the reply default and keeps everything else", () => {
   const s = normalizeSettings({
     version: 6,

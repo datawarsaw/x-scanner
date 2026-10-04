@@ -9,11 +9,13 @@ export class Hud {
   private body: HTMLElement;
   private msg: HTMLElement;
   private v: Record<string, HTMLElement> = {};
+  private onOpenSession: () => void;
 
   constructor(
     onOpenSettings: () => void,
-    private onOpenSession: () => void = () => {},
+    onOpenSession: () => void = () => {},
   ) {
+    this.onOpenSession = onOpenSession;
     this.root = el("div", "xs-hud");
     const title = el("div", "xs-hud-title");
     title.innerHTML = `<span>x-scanner <em class="xs-hud-preset"></em></span><span class="xs-hud-tog" aria-label="collapse">–</span>`;
@@ -77,8 +79,12 @@ export class Hud {
     if (!this.root.isConnected) document.documentElement.appendChild(this.root);
   }
 
-  destroy(): void {
+  unmount(): void {
     this.root.remove();
+  }
+
+  destroy(): void {
+    this.unmount();
   }
 
   /** Replace the counters with a one line status, e.g. missing key or paused by scope. */

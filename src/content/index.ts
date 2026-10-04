@@ -55,7 +55,9 @@ class App {
   }
 
   async start(): Promise<void> {
-    this.hud.mount();
+    if (this.settings.showAnalysisHud) {
+      this.hud.mount();
+    }
     this.stats.subscribe((s) => this.hud.update(s));
     if (!this.settings.apiKey) {
       this.hud.message(`Add your TypeSafe API key in ${SETTINGS_LINK}`);
@@ -119,6 +121,13 @@ class App {
     // 4. HUD identity
     const presetLabel = PRESET_BY_ID[next.selectedPreset]?.label ?? "Default";
     this.hud.setPreset(presetLabel);
+    if (next.showAnalysisHud) {
+      this.hud.mount();
+      this.hud.update(this.stats.snapshot());
+    } else {
+      this.hud.unmount();
+      document.querySelector(".xs-session")?.remove();
+    }
 
     // 5. Active dimensions and API key guards
     if (!next.apiKey) {

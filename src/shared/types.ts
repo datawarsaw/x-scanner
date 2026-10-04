@@ -59,6 +59,11 @@ export interface Settings {
   dimensions: Dimension[];
   /** Built-in analysis profile. Default uses `dimensions` (the v0.1 questions, user-editable). */
   selectedPreset: PresetId;
+  /**
+   * When true, the floating corner HUD (scan count, cost, latency, queue) is displayed on X.
+   * Default is false (clean native UI with subtle inline annotations only).
+   */
+  showAnalysisHud: boolean;
   /** When false, the Analyze article action is hidden. */
   articleAnalysisEnabled: boolean;
   /** How much extra DOM thread context to attach. Default is quoted-only (v0.1). */

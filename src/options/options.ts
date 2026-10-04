@@ -46,6 +46,7 @@ function fillForm(s: Settings): void {
   $<HTMLSelectElement>("#scope").value = s.scope;
   $<HTMLInputElement>("#accountHandle").value = s.accountHandle;
   $<HTMLInputElement>("#analyzeReplies").checked = s.analyzeReplies;
+  $<HTMLInputElement>("#showAnalysisHud").checked = s.showAnalysisHud;
   $<HTMLSelectElement>("#preset").value = s.selectedPreset;
   $<HTMLSelectElement>("#threadContextMode").value = s.threadContextMode;
   $<HTMLInputElement>("#articleAnalysisEnabled").checked = s.articleAnalysisEnabled;
@@ -304,6 +305,7 @@ export function readForm(): { settings: Settings; problems: number } {
     scope: $<HTMLSelectElement>("#scope").value,
     accountHandle: $<HTMLInputElement>("#accountHandle").value,
     analyzeReplies: $<HTMLInputElement>("#analyzeReplies").checked,
+    showAnalysisHud: $<HTMLInputElement>("#showAnalysisHud").checked,
     selectedPreset: $<HTMLSelectElement>("#preset").value as Settings["selectedPreset"],
     threadContextMode: $<HTMLSelectElement>("#threadContextMode").value as Settings["threadContextMode"],
     articleAnalysisEnabled: $<HTMLInputElement>("#articleAnalysisEnabled").checked,

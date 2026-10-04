@@ -48,7 +48,7 @@ async function launch(profileSuffix: string): Promise<{ ctx: BrowserContext; sw:
 
 async function configure(sw: Worker, settings: SessionSettings): Promise<void> {
   await sw.evaluate(async (s: SessionSettings) => {
-    await chrome.storage.local.set({ settings: s });
+    await chrome.storage.local.set({ settings: { showAnalysisHud: true, ...s } });
   }, settings);
 }
 

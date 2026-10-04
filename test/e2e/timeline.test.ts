@@ -35,7 +35,7 @@ test("timeline: dwell triggers analysis, pills render, promoted skipped, cache s
     await chrome.storage.local.set({
       // This suite is the v0.1 behaviour check, which also analyzed replies; the v0.5.1 reply filter
       // has its own coverage in v05.test.ts.
-      settings: { apiKey: "test-key", baseUrl, scope: "all", dwellMs: 200, concurrency: 6, analyzeReplies: true },
+      settings: { apiKey: "test-key", baseUrl, scope: "all", dwellMs: 200, concurrency: 6, analyzeReplies: true, showAnalysisHud: true },
     });
   }, `http://127.0.0.1:${server.port}`);
 
@@ -217,7 +217,7 @@ test("scope: home only pauses on other paths, account filter pauses on mismatch"
   const base = `http://127.0.0.1:${server.port}`;
 
   await sw.evaluate(async (baseUrl: string) => {
-    await chrome.storage.local.set({ settings: { apiKey: "test-key", baseUrl, scope: "home", version: 3 } });
+    await chrome.storage.local.set({ settings: { apiKey: "test-key", baseUrl, scope: "home", version: 3, showAnalysisHud: true } });
   }, base);
   const page = await ctx.newPage();
   await page.goto(`${base}/timeline.html`);
@@ -227,19 +227,19 @@ test("scope: home only pauses on other paths, account filter pauses on mismatch"
   assert.equal(server.requests.length, 0);
 
   await sw.evaluate(async (baseUrl: string) => {
-    await chrome.storage.local.set({ settings: { apiKey: "test-key", baseUrl, scope: "all", accountHandle: "someoneelse" } });
+    await chrome.storage.local.set({ settings: { apiKey: "test-key", baseUrl, scope: "all", accountHandle: "someoneelse", showAnalysisHud: true } });
   }, base);
   await page.waitForFunction(() => /logged in as @demo_user/.test(document.querySelector(".xs-hud-msg")?.textContent ?? ""), null, { timeout: 5000 });
   assert.equal(server.requests.length, 0);
 
   await sw.evaluate(async (baseUrl: string) => {
-    await chrome.storage.local.set({ settings: { apiKey: "test-key", baseUrl, scope: "all", accountHandle: "Demo_User" } });
+    await chrome.storage.local.set({ settings: { apiKey: "test-key", baseUrl, scope: "all", accountHandle: "Demo_User", showAnalysisHud: true } });
   }, base);
   await page.waitForFunction(() => document.querySelectorAll('.xs-slot[data-state="done"]').length >= 1, null, { timeout: 10000 });
   assert.ok(server.requests.length >= 1);
 
   await sw.evaluate(async () => {
-    await chrome.storage.local.set({ settings: { apiKey: "" } });
+    await chrome.storage.local.set({ settings: { apiKey: "", showAnalysisHud: true } });
   });
   await page.waitForFunction(() => /API key/.test(document.querySelector(".xs-hud-msg")?.textContent ?? ""), null, { timeout: 5000 });
 });
