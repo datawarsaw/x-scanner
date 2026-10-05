@@ -82,8 +82,15 @@ test("signal v2: topic leads the row, values share one range, and details keep t
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto(base + "/posts.html");
   await page.waitForFunction(
-    () => document.querySelectorAll('.xs-slot[data-state="done"][data-display="normalized"]').length >= 1,
-    null,
+    (target) => {
+      const art = Array.from(document.querySelectorAll("article")).find((a) => (a.textContent || "").includes(target));
+      const slot = art?.querySelector(".xs-slot");
+      return (
+        slot?.getAttribute("data-state") === "done" &&
+        slot?.getAttribute("data-display") === "normalized"
+      );
+    },
+    "Scheduler latency dropped",
     { timeout: 20000 },
   );
 

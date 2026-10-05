@@ -270,16 +270,44 @@ test("guard: a preset with its own dimensions still runs when every editable dim
   });
 
   const { page, errors } = await openTimeline(ctx, base, "normalized");
+  // openTimeline returns as soon as any slot is done, and the fake server's randomized per-request
+  // delay means that first slot can belong to a different post. Wait for this post's own slot so the
+  // compact row is read after it, and only it, has rendered.
+  await page.waitForFunction(
+    (p) => {
+      const art = Array.from(document.querySelectorAll("article")).find((a) => (a.textContent || "").includes(p));
+      return art?.querySelector(".xs-slot")?.getAttribute("data-state") === "done";
+    },
+    POST,
+    { timeout: 20000 },
+  );
   const asked = server.requests.find((r) => r.text.startsWith(POST));
   assert.ok(asked, "the run was not blocked by the editable legacy dimensions");
   assert.deepEqual(asked!.questionIds, V2_IDS);
-  const hud = await page.evaluate(() => ({
-    message: document.querySelector(".xs-hud-msg")?.textContent ?? "",
-    title: document.querySelector(".xs-hud-title")?.textContent ?? "",
-    chips: document.querySelectorAll('.xs-slot[data-state="done"] .xs-dim, .xs-slot[data-state="done"] .xs-warn, .xs-slot[data-state="done"] .xs-topic').length,
-  }));
+  // Scope the compact-row read to this post's slot instead of counting chips across the document.
+  const hud = await page.evaluate((p) => {
+    const art = Array.from(document.querySelectorAll("article")).find((a) => (a.textContent || "").includes(p));
+    const slot = art?.querySelector(".xs-slot") as HTMLElement | null;
+    const items = Array.from(slot?.querySelectorAll(".xs-dim, .xs-warn, .xs-topic") ?? []);
+    const ids = (cls: string) => items.filter((e) => e.classList.contains(cls)).map((e) => (e as HTMLElement).dataset.dim);
+    return {
+      message: document.querySelector(".xs-hud-msg")?.textContent ?? "",
+      title: document.querySelector(".xs-hud-title")?.textContent ?? "",
+      state: slot?.dataset.state ?? null,
+      topic: slot?.querySelector(".xs-topic")?.textContent ?? null,
+      dims: ids("xs-dim"),
+      warns: ids("xs-warn"),
+      items: items.length,
+    };
+  }, POST);
   assert.equal(/No dimensions enabled/.test(hud.message), false, hud.message);
   assert.match(hud.title, /Signal v2/);
-  assert.ok(hud.chips >= 6, String(hud.chips));
+  // Deterministic compact result for this post: a topic plus the four signal components. Both filters
+  // fall below FILTER_SILENCE, so neither reaches the row; nothing escalates.
+  assert.equal(hud.state, "done");
+  assert.equal(hud.topic, "AI");
+  assert.deepEqual(hud.dims, ["information_density", "original_insight", "evidence", "actionable"]);
+  assert.deepEqual(hud.warns, []);
+  assert.equal(hud.items, 5);
   assert.deepEqual(errors, []);
 });
