@@ -3,7 +3,7 @@
   "name": "x-scanner",
   "version": "0.6.4",
   "description": "Labels posts you scroll past on X with typed Jev judgments, analyzes linked and native X Articles on request, and shows what the session cost. Bring your own TypeSafe key.",
-  "homepage_url": "https://github.com/oso95/x-scanner",
+  "homepage_url": "https://github.com/datawarsaw/x-scanner",
   "permissions": ["storage"],
   "host_permissions": ["https://api.typesafe.ai/*"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
