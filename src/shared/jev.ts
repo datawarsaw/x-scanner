@@ -2,8 +2,8 @@ import type { JevRequest, JevResponse } from "./types.ts";
 
 export const JEV_PATH = "/v1/systemone";
 export const DEFAULT_BASE_URL = "https://api.typesafe.ai";
-export const DEFAULT_MODEL = "jev-1.13.0";
-/** USD per million input tokens for jev-1.13.0, from docs.typesafe.ai/models (2026-09-18). */
+export const DEFAULT_MODEL = "jev-1.14.0";
+/** USD per million input tokens for jev-1.14.0 and jev-1.13.0, from docs.typesafe.ai/models (2026-09-18). */
 export const DEFAULT_PRICE_PER_MTOK = 0.042;
 
 export function costUsd(inputTokens: number, pricePerMtok: number): number {
@@ -29,6 +29,11 @@ export interface CallOptions {
   backoffMs?: number;
   sleep?: (ms: number) => Promise<void>;
   signal?: AbortSignal;
+  /**
+   * Extra request headers. The vision path uses this for the documented image opt-in header;
+   * a text-only call passes nothing and sends exactly the headers it always sent.
+   */
+  extraHeaders?: Record<string, string>;
 }
 
 const RETRYABLE = new Set([429, 529]);
@@ -48,7 +53,7 @@ export async function callJev(body: JevRequest, opts: CallOptions): Promise<{ re
     try {
       res = await fetchImpl(url, {
         method: "POST",
-        headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json", ...opts.extraHeaders },
         body: JSON.stringify(body),
         signal: opts.signal,
       });

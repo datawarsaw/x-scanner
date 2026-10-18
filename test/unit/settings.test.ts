@@ -11,7 +11,7 @@ test("fills defaults for a missing or partial object", () => {
   assert.equal(s.concurrency, 32);
   assert.equal(s.dwellMs, 0);
   assert.equal(s.lookaheadPx, 800);
-  assert.equal(s.version, 7);
+  assert.equal(s.version, 8);
   assert.equal(s.dimensions.length, 6);
 });
 
@@ -156,4 +156,37 @@ test("renames jev to jevpilled and gives a pre-v5 about_jev its red, keeping a c
   assert.equal(chosen.dimensions[0]!.color, "#00aa00");
   const bad = normalizeSettings({ version: 5, dimensions: [{ ...base, label: "x", color: "red" }] });
   assert.equal(bad.dimensions[0]!.color, undefined);
+});
+
+test("new installations default model to jev-1.14.0", () => {
+  assert.equal(DEFAULT_SETTINGS.model, "jev-1.14.0");
+  assert.equal(normalizeSettings(undefined).model, "jev-1.14.0");
+  assert.equal(normalizeSettings({}).model, "jev-1.14.0");
+});
+
+test("migrates legacy stored jev-1.13.0 to jev-1.14.0 for pre-v8 installs", () => {
+  const v7 = normalizeSettings({ version: 7, model: "jev-1.13.0", apiKey: "my-key" });
+  assert.equal(v7.model, "jev-1.14.0");
+  assert.equal(v7.version, 8);
+  assert.equal(v7.apiKey, "my-key");
+
+  const v1 = normalizeSettings({ version: 1, model: "jev-1.13.0" });
+  assert.equal(v1.model, "jev-1.14.0");
+  assert.equal(v1.version, 8);
+
+  const missingModel = normalizeSettings({ version: 7 });
+  assert.equal(missingModel.model, "jev-1.14.0");
+  assert.equal(missingModel.version, 8);
+});
+
+test("preserves explicit custom models on upgrade from pre-v8", () => {
+  const custom = normalizeSettings({ version: 7, model: "custom-systemone-v2" });
+  assert.equal(custom.model, "custom-systemone-v2");
+  assert.equal(custom.version, 8);
+});
+
+test("preserves explicit jev-1.13.0 override on v8+", () => {
+  const explicit113 = normalizeSettings({ version: 8, model: "jev-1.13.0", apiKey: "keep" });
+  assert.equal(explicit113.model, "jev-1.13.0");
+  assert.equal(explicit113.version, 8);
 });

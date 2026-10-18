@@ -3,6 +3,7 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { mediaFixture } from "./media.ts";
 
 export interface SeenRequest {
   text: string;
@@ -18,6 +19,16 @@ export interface SeenRequest {
   subtitle?: string;
   url?: string;
   truncated?: boolean;
+  /** state.attached_image: the reference the image was hung off, when the request carried one. */
+  attachedImage?: string;
+  /** assets[ref].format, "png" or "jpg". */
+  assetFormat?: string;
+  /** Decoded size of the asset's base64, so a test can check what was actually sent. */
+  assetBytes?: number;
+  /** The base64 payload itself, so a test can decode and measure it. */
+  assetBase64?: string;
+  /** The opt-in header, present only on a request that carries an image. */
+  imageHeader?: string;
 }
 
 /** Signal v2 asks these as scores; the fixture values are fixed so the display can be asserted. */
@@ -33,7 +44,12 @@ const CHOICE_SHARES: Record<string, number> = { ai: 0.72, software_engineering: 
 export interface AnswerOverrides {
   scores?: Record<string, number>;
   nouls?: Record<string, number>;
+  /** Answer an image-carrying request with a 500, to exercise the text-only fallback. */
+  failVision?: boolean;
 }
+
+/** What a vision request costs: the documented image-token overhead on top of the text tokens. */
+export const VISION_TOKEN_OVERHEAD = 1160;
 
 export function fakeAnswers(
   state: { text: string; quoted_text?: string },
@@ -85,11 +101,23 @@ export function tokensFor(state: unknown): number {
 export async function startServer(
   fixtureDir: string,
   overrides: AnswerOverrides = {},
-): Promise<{ port: number; requests: SeenRequest[]; close: () => void; totalTokens: () => number }> {
+): Promise<{
+  port: number;
+  requests: SeenRequest[];
+  /** Every /media/ path asked for, so a test can prove nothing was fetched that should not have been. */
+  mediaRequests: MediaRequest[];
+  close: () => void;
+  totalTokens: () => number;
+}> {
   const requests: SeenRequest[] = [];
+  const mediaRequests: MediaRequest[] = [];
   let totalTokens = 0;
   const server = http.createServer(async (req, res) => {
-    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "POST, GET, OPTIONS" };
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "authorization, content-type, TypeSafe-Danger-Zone-Images",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    };
     if (req.method === "OPTIONS") {
       res.writeHead(204, cors);
       res.end();
@@ -116,10 +144,16 @@ export async function startServer(
           truncated?: boolean;
           source?: { type?: string };
           subtitle?: string;
+          attached_image?: string;
         };
         questions: Record<string, { type?: string; criteria?: unknown }>;
+        assets?: Record<string, { type?: string; format?: string; data_base64?: string }>;
       };
       const ids = Object.keys(parsed.questions);
+      const ref = parsed.state.attached_image;
+      const asset = ref ? parsed.assets?.[ref] : undefined;
+      const rawHeader = req.headers["typesafe-danger-zone-images"];
+      const imageHeader = typeof rawHeader === "string" ? rawHeader : undefined;
       requests.push({
         text: parsed.state.text,
         quoted_text: parsed.state.quoted_text,
@@ -133,8 +167,20 @@ export async function startServer(
         subtitle: parsed.state.subtitle,
         url: parsed.state.url,
         truncated: parsed.state.truncated,
+        attachedImage: ref,
+        assetFormat: asset?.format,
+        assetBytes: asset?.data_base64 ? Buffer.from(asset.data_base64, "base64").byteLength : undefined,
+        assetBase64: asset?.data_base64,
+        imageHeader,
       });
-      const input_tokens = tokensFor(parsed.state);
+      // An image-carrying request is the one the opt-in switch failed on: answer it as the real API
+      // would, and the extension's fallback to text-only scoring is what the test then observes.
+      if (overrides.failVision && imageHeader) {
+        res.writeHead(500, { "Content-Type": "application/json", ...cors });
+        res.end(JSON.stringify({ error: "vision unavailable" }));
+        return;
+      }
+      const input_tokens = tokensFor(parsed.state) + (ref ? VISION_TOKEN_OVERHEAD : 0);
       totalTokens += input_tokens;
       await new Promise((r) => setTimeout(r, 60 + Math.random() * 60));
       res.writeHead(200, { "Content-Type": "application/json", ...cors });
@@ -147,6 +193,31 @@ export async function startServer(
       return;
     }
     const pathname = (req.url ?? "/").split("?")[0]!;
+    // The photo CDN stand-in for the vision tests: generated on the fly, so no binary fixture is
+    // committed. Checked before the file fallback so a media name never resolves as an HTML page.
+    const mediaName = /^\/media\/(.+)$/.exec(pathname)?.[1];
+    if (req.method === "GET" && mediaName) {
+      const cookie = req.headers.cookie;
+      const authorization = req.headers.authorization;
+      const dest = req.headers["sec-fetch-dest"];
+      const fetchMode = req.headers["sec-fetch-mode"];
+      mediaRequests.push({
+        path: pathname,
+        dest: typeof dest === "string" ? dest : undefined,
+        mode: typeof fetchMode === "string" ? fetchMode : undefined,
+        cookie: typeof cookie === "string" ? cookie : undefined,
+        authorization: typeof authorization === "string" ? authorization : undefined,
+      });
+      const fixture = mediaFixture(mediaName);
+      if (!fixture) {
+        res.writeHead(404, cors);
+        res.end("not found");
+        return;
+      }
+      res.writeHead(200, { "Content-Type": fixture.type, "Content-Length": String(fixture.bytes.byteLength), ...cors });
+      res.end(Buffer.from(fixture.bytes));
+      return;
+    }
     // A status permalink URL renders the thread fixture, so DOM thread-context extraction can be tested.
     // A handle-qualified status URL renders the conversation fixture whose root id matches the route.
     // The native X Article fixture answers the same route shape as a real long-form status page.
@@ -170,5 +241,22 @@ export async function startServer(
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const port = (server.address() as { port: number }).port;
-  return { port, requests, close: () => server.close(), totalTokens: () => totalTokens };
+  return { port, requests, mediaRequests, close: () => server.close(), totalTokens: () => totalTokens };
 }
+/**
+ * What the fake photo CDN saw. The browser fetches an <img> it was asked to render all by itself, so
+ * the Sec-Fetch pair is what separates a page render (dest "image", mode "no-cors") from the
+ * extension's own download for transmission (dest "empty", mode "cors"). Only the latter is
+ * something x-scanner did.
+ */
+export interface MediaRequest {
+  path: string;
+  /** Sec-Fetch-Dest: "image" for a rendered <img>, "empty" for a fetch() call. */
+  dest?: string;
+  /** Sec-Fetch-Mode: "no-cors" for a rendered <img>, "cors" for the extension's fetch. */
+  mode?: string;
+  cookie?: string;
+  authorization?: string;
+}
+
+/** What a vision request costs: the documented image-token overhead on top of the text tokens. */

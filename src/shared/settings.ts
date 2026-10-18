@@ -19,7 +19,8 @@ export const SETTINGS_CHANGED = "settingsChanged" as const;
 /** v1: dwell 200 ms. v2: dwell 0, 800 px look-ahead. v3: scope all of X. v4: about_jev. v5: jevpilled, flag colors. */
 /** v6: presets, article analysis, thread context, session fields. */
 /** v7: replies and comments are skipped unless the reader opts in. */
-export const SETTINGS_VERSION = 7;
+/** v8: Jev Vision beta, off by default; unified default model jev-1.14.0. */
+export const SETTINGS_VERSION = 8;
 
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
@@ -41,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   threadContextMode: "quoted",
   maxArticleChars: 8000,
   articleCacheMax: 200,
+  visionBetaEnabled: false,
   version: SETTINGS_VERSION,
 };
 
@@ -52,6 +54,10 @@ export function normalizeSettings(raw: unknown): Settings {
   const dwellRaw = version < 2 && Number(r.dwellMs) === 200 ? 0 : r.dwellMs;
   // v1 and v2 saved the old "home" default; follow the new default.
   const scopeRaw = version < 3 && r.scope === "home" ? "all" : r.scope;
+  // pre-v8 installs saved the previous "jev-1.13.0" default into storage; carry them to the new
+  // "jev-1.14.0" default unless a custom model was configured. A user who explicitly re-selects
+  // "jev-1.13.0" on v8+ has their choice preserved because version is >= 8.
+  const modelRaw = version < 8 && r.model === "jev-1.13.0" ? DEFAULT_MODEL : r.model;
   const dims = Array.isArray(r.dimensions) && r.dimensions.length ? r.dimensions.map(normalizeDimension).map((d) => migrateLabel(d, version)) : [...DEFAULT_DIMENSIONS];
   // Defaults added after this install's version are appended; ones the user deleted later stay deleted.
   for (const [v, ids] of Object.entries(ADDED_IN_VERSION)) {
@@ -64,7 +70,7 @@ export function normalizeSettings(raw: unknown): Settings {
   return {
     enabled: typeof r.enabled === "boolean" ? r.enabled : DEFAULT_SETTINGS.enabled,
     apiKey: typeof r.apiKey === "string" ? r.apiKey.trim() : "",
-    model: typeof r.model === "string" && r.model.trim() ? r.model.trim() : DEFAULT_MODEL,
+    model: typeof modelRaw === "string" && modelRaw.trim() ? modelRaw.trim() : DEFAULT_MODEL,
     baseUrl: typeof r.baseUrl === "string" && r.baseUrl.trim() ? r.baseUrl.trim() : DEFAULT_BASE_URL,
     pricePerMtok: finiteOr(r.pricePerMtok, DEFAULT_PRICE_PER_MTOK),
     scope: scopeRaw === "home" ? "home" : "all",
@@ -82,6 +88,7 @@ export function normalizeSettings(raw: unknown): Settings {
     threadContextMode: r.threadContextMode === "off" || r.threadContextMode === "parent" || r.threadContextMode === "thread" ? r.threadContextMode : "quoted",
     maxArticleChars: clamp(Number(r.maxArticleChars), 1000, 40000, DEFAULT_SETTINGS.maxArticleChars),
     articleCacheMax: clamp(Number(r.articleCacheMax), 20, 2000, DEFAULT_SETTINGS.articleCacheMax),
+    visionBetaEnabled: typeof r.visionBetaEnabled === "boolean" ? r.visionBetaEnabled : false,
     version: SETTINGS_VERSION,
   };
 }

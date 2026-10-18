@@ -26,9 +26,12 @@
           </span>
         </label>
         <div class="row">
-          <label>Model <input id="model" spellcheck="false" /></label>
+          <label>Model <input id="model" spellcheck="false" placeholder="jev-1.14.0" /></label>
           <label>Price, USD per 1M input tokens <input id="pricePerMtok" type="number" step="0.001" min="0" /></label>
         </div>
+        <p class="muted">
+          Default model is <code>jev-1.14.0</code> for text and image-aware Signal v2 scoring. You can explicitly set <code>jev-1.13.0</code> for text compatibility or rollback.
+        </p>
         <details>
           <summary>Advanced</summary>
           <div class="row">
@@ -122,6 +125,28 @@
             <span id="saveTopOut" class="muted"></span>
           </div>
         </div>
+      </section>
+
+      <section>
+        <h2>Vision (beta)</h2>
+        <p class="muted">
+          Off by default. When you turn it on <em>and</em> the Signal v2 preset is selected, x-scanner downloads the
+          first photo attached to a post and sends it to TypeSafe together with the post text, so Jev can judge the
+          image as part of the post. Photos are resized proportionally when they exceed the limits Jev accepts, and
+          only images hosted on <code>pbs.twimg.com</code> are considered. Images inside quoted posts are never sent,
+          and neither is video or GIF media. Anything else stays exactly as it is with this switch off: text-only
+          scoring, and a post with no photo is analyzed as text alone. If the photo cannot be fetched or the vision
+          request fails, x-scanner falls back to text-only scoring for that post.
+        </p>
+        <label class="check"
+          ><input id="visionBetaEnabled" type="checkbox" /> Send post photos to TypeSafe for image-aware Signal v2
+          scoring</label
+        >
+        <p class="muted">Current value: <b id="visionState">&ndash;</b></p>
+        <p class="muted">
+          Each analyzed post carries more tokens once an image is attached, so costs per post rise. A result produced
+          this way is marked <b>vision</b> on the post and in its detail panel; unmarked results are text-only.
+        </p>
       </section>
 
       <section>

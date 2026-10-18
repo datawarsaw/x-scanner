@@ -10,6 +10,13 @@ export const SEL = {
   tweetText: '[data-testid="tweetText"]',
   /** Wrapper of a quoted post inside an article. */
   quoteContainer: 'div[role="link"]',
+  /**
+   * The post's own photo container. X renders one per attached image, and a quoted post renders its
+   * own inside the quote wrapper, so the caller still has to skip anything inside a quote. Video and
+   * GIF thumbnails use a different container and are deliberately not matched: only still photos are
+   * in scope for the vision beta.
+   */
+  tweetPhoto: '[data-testid="tweetPhoto"]',
   /** Permalink anchors; the one wrapping a <time> is the post's own. */
   statusLink: 'a[href*="/status/"]',
   /** "Show more" link X renders right after a long post's text. The verdict line goes after it. */

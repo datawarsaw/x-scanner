@@ -71,6 +71,12 @@ export interface Settings {
   /** Hard cap on article body characters sent to Jev. */
   maxArticleChars: number;
   articleCacheMax: number;
+  /**
+   * Jev Vision beta. Off by default. When on, a Signal v2 post whose own photo can be read is
+   * analyzed with that photo attached, and the photo is downloaded and sent to TypeSafe. Every other
+   * preset, and every post without a usable photo, keeps the text-only path unchanged.
+   */
+  visionBetaEnabled: boolean;
   /** Bumped when a default changes in a way stored settings should follow. */
   version: number;
 }
@@ -163,6 +169,11 @@ export interface JevRequest {
   model: string;
   state: unknown;
   questions: Record<string, JevQuestion>;
+  /**
+   * Images in the request, keyed by the reference string written into the state. Only set by the
+   * vision path, and only when the reader turned the beta on. Requires the IMAGE_HEADER opt-in.
+   */
+  assets?: Record<string, { type: "image"; format: string; data_base64: string }>;
 }
 
 export interface JevResponse {
@@ -170,6 +181,20 @@ export interface JevResponse {
   answers: Record<string, Answer>;
   usage: { input_tokens: number; output_tokens: number };
 }
+
+/**
+ * One prepared post photo, handed from the content script to the service worker. The bytes are
+ * already base64 and already inside the API's limits; mediaUrl is the canonical address it came
+ * from, kept for cache identity and never sent.
+ */
+export interface VisionImage {
+  data_base64: string;
+  format: "png" | "jpg";
+  mediaUrl: string;
+}
+
+/** How a displayed result was produced. Absent on results cached before the vision beta existed. */
+export type AnalysisMode = "text" | "vision";
 
 /** One completed analysis, as cached and as rendered. */
 export interface AnalysisResult {
@@ -190,6 +215,8 @@ export interface AnalysisResult {
   truncated?: boolean;
   contextHash?: string;
   signalScore?: number;
+  /** Vision results say so in the row and in the detail card. Anything older reads as text. */
+  analysisMode?: AnalysisMode;
 }
 
 export interface Verdict {
@@ -220,7 +247,7 @@ export interface ChoiceVerdict {
 
 /** Messages between the content script and the service worker. */
 export type Message =
-  | { type: "analyze"; state: TweetState | AnalysisState }
+  | { type: "analyze"; state: TweetState | AnalysisState; image?: VisionImage }
   | { type: "analyzeArticle"; article: ArticleState }
   | { type: "fetchArticle"; url: string }
   | { type: "testConnection" }
@@ -236,7 +263,16 @@ export type AnalyzeArticleMessage = { type: "analyzeArticle"; article: ArticleSt
 export type FetchArticleMessage = { type: "fetchArticle"; url: string };
 
 export type AnalyzeReply =
-  | { ok: true; model: string; answers: Record<string, Answer>; usage: JevResponse["usage"]; latencyMs: number; costUsd: number }
+  | {
+      ok: true;
+      model: string;
+      answers: Record<string, Answer>;
+      usage: JevResponse["usage"];
+      latencyMs: number;
+      costUsd: number;
+      /** Which call produced these answers. A vision attempt that failed answers "text". */
+      mode?: AnalysisMode;
+    }
   | { ok: false; error: string; status?: number };
 
 export interface LifetimeStats {

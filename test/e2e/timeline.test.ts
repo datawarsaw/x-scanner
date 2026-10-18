@@ -143,7 +143,7 @@ test("timeline: dwell triggers analysis, pills render, promoted skipped, cache s
   }));
   assert.equal(detail.rows, 6);
   assert.equal(detail.hit, "engagement bait");
-  assert.match(detail.foot, /^\d+ tok · \$0\.\d{6} · \d+ ms · jev-1\.13\.0$/);
+  assert.match(detail.foot, /^\d+ tok · \$0\.\d{6} · \d+ ms · jev-1\.14\.0$/);
   await page.mouse.click(5, 400);
   await page.waitForFunction(() => !document.querySelector(".xs-detail"));
 
@@ -165,7 +165,7 @@ test("timeline: dwell triggers analysis, pills render, promoted skipped, cache s
   assert.equal(red.flag, "rgb(244, 33, 46)", "jevpilled flag is red");
   // color-mix() output: rgb(244, 33, 46) at 70%, which Chrome reports as color(srgb 0.9569 0.1294 0.1804 / 0.7).
   assert.match(red.border ?? "", /244, 33, 46|srgb 0\.95\d* 0\.12\d* 0\.18\d*/, "chip border takes the red");
-  assert.equal(server.requests[0]!.model, "jev-1.13.0");
+  assert.equal(server.requests[0]!.model, "jev-1.14.0");
 
   // Every post was billed at most once even though the list recycled and remounted nodes.
   const texts = server.requests.map((r) => r.text + "|" + (r.quoted_text ?? ""));
@@ -268,7 +268,7 @@ test("options page: renders dimensions, test connection and save work", async (t
   await page.goto(`chrome-extension://${extId}/options.html`);
   await page.waitForSelector(".dim");
   assert.equal(await page.locator(".dim").count(), 6);
-  assert.equal(await page.inputValue("#model"), "jev-1.13.0");
+  assert.equal(await page.inputValue("#model"), "jev-1.14.0");
 
   // About reads the running manifest, so the version on screen is the one actually loaded, never a literal
   // in the source. Compare it against the manifest that was built for this run rather than a hardcoded string.
@@ -288,7 +288,7 @@ test("options page: renders dimensions, test connection and save work", async (t
   await page.click("details > summary");
   await page.fill("#baseUrl", `http://127.0.0.1:${server.port}`);
   await page.click("#test");
-  await page.waitForFunction(() => /jev-1\.13\.0 · \d+ ms · \d+ tokens/.test(document.querySelector("#testOut")?.textContent ?? ""), null, { timeout: 10000 });
+  await page.waitForFunction(() => /jev-1\.14\.0 · \d+ ms · \d+ tokens/.test(document.querySelector("#testOut")?.textContent ?? ""), null, { timeout: 10000 });
   assert.equal(server.requests.length, 1);
   assert.match(server.requests[0]!.text, /RT if you agree/);
 

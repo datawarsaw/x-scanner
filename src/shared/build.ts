@@ -8,6 +8,15 @@ declare const __XS_BUILD_SHA__: string;
 export const BUILD_SHA: string =
   typeof __XS_BUILD_SHA__ === "string" && /^[0-9a-f]{7,40}$/.test(__XS_BUILD_SHA__) ? __XS_BUILD_SHA__ : "unknown";
 
+declare const __XS_E2E__: string;
+
+/**
+ * True only in the --e2e bundle, where the fixture timeline is served from 127.0.0.1. It widens the
+ * vision media allowlist to that local origin so the same photo path is testable offline. Shipped
+ * builds define it as "false", and under node the global is absent.
+ */
+export const IS_E2E: boolean = typeof __XS_E2E__ === "string" && __XS_E2E__ === "true";
+
 export interface BuildManifest {
   version?: string;
   background?: { service_worker?: string; scripts?: string[] };
