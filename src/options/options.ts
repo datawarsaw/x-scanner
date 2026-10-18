@@ -49,6 +49,7 @@ function fillForm(s: Settings): void {
   $<HTMLInputElement>("#showAnalysisHud").checked = s.showAnalysisHud;
   $<HTMLSelectElement>("#preset").value = s.selectedPreset;
   $<HTMLSelectElement>("#threadContextMode").value = s.threadContextMode;
+  $<HTMLInputElement>("#visionBetaEnabled").checked = s.visionBetaEnabled;
   $<HTMLInputElement>("#articleAnalysisEnabled").checked = s.articleAnalysisEnabled;
   $<HTMLInputElement>("#maxArticleChars").value = String(s.maxArticleChars);
   $<HTMLInputElement>("#articleCacheMax").value = String(s.articleCacheMax);
@@ -58,6 +59,7 @@ function fillForm(s: Settings): void {
   renderPreset();
   updateDirtyState(false);
   renderReplyState();
+  renderVisionState();
   void renderArticleAccess();
 }
 
@@ -308,6 +310,7 @@ export function readForm(): { settings: Settings; problems: number } {
     showAnalysisHud: $<HTMLInputElement>("#showAnalysisHud").checked,
     selectedPreset: $<HTMLSelectElement>("#preset").value as Settings["selectedPreset"],
     threadContextMode: $<HTMLSelectElement>("#threadContextMode").value as Settings["threadContextMode"],
+    visionBetaEnabled: $<HTMLInputElement>("#visionBetaEnabled").checked,
     articleAnalysisEnabled: $<HTMLInputElement>("#articleAnalysisEnabled").checked,
     maxArticleChars: Number($<HTMLInputElement>("#maxArticleChars").value),
     articleCacheMax: Number($<HTMLInputElement>("#articleCacheMax").value),
@@ -342,6 +345,14 @@ function flash(el: HTMLElement, text: string, cls: "ok" | "err" | "muted"): void
 function renderReplyState(): void {
   const on = $<HTMLInputElement>("#analyzeReplies").checked;
   $("#replyState").textContent = on ? "ON \u00b7 replies and comments are analyzed" : "OFF \u00b7 main posts only (default)";
+}
+
+/** Same idea as the reply state line: the switch names its consequence in words, not only by its tick. */
+function renderVisionState(): void {
+  const on = $<HTMLInputElement>("#visionBetaEnabled").checked;
+  $("#visionState").textContent = on
+    ? "ON \u00b7 post photos are sent to TypeSafe with Signal v2 requests"
+    : "OFF \u00b7 text only (default)";
 }
 
 /** Version comes from the running manifest; build and target describe the artifact that is actually loaded. */
@@ -400,6 +411,10 @@ export async function initOptions(): Promise<void> {
   });
   $("#analyzeReplies").addEventListener("change", () => {
     renderReplyState();
+    checkDirty();
+  });
+  $("#visionBetaEnabled").addEventListener("change", () => {
+    renderVisionState();
     checkDirty();
   });
   $("#toggleDefaultDims").addEventListener("click", () => toggleDefaultDims());

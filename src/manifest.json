@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "x-scanner",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "Labels posts you scroll past on X with typed Jev judgments, analyzes linked and native X Articles on request, and shows what the session cost. Bring your own TypeSafe key.",
   "homepage_url": "https://github.com/datawarsaw/x-scanner",
   "permissions": ["storage"],

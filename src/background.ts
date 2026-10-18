@@ -1,10 +1,22 @@
 // Service worker. The only place that holds the API key and talks to Jev.
 // The content script sends tweet state; this returns typed answers plus exact token usage.
-import type { AnalyzeReply, ArticleState, FetchArticleReply, LifetimeStats, Message, TweetState } from "./shared/types.ts";
+import type {
+  AnalyzeReply,
+  AnalysisState,
+  ArticleState,
+  FetchArticleReply,
+  JevQuestion,
+  LifetimeStats,
+  Message,
+  Settings,
+  TweetState,
+  VisionImage,
+} from "./shared/types.ts";
 import { loadSettings, onSettingsChange, SETTINGS_CHANGED, SETTINGS_PORT, STATS_KEY } from "./shared/settings.ts";
 import { buildQuestions } from "./shared/questions.ts";
 import { callJev, costUsd, JevError } from "./shared/jev.ts";
 import { PRESET_BY_ID, activeQuestions } from "./shared/presets.ts";
+import { assertReferenceSafe, IMAGE_HEADER, newVisionReference, VISION_MODEL } from "./shared/vision.ts";
 
 const SAMPLE: TweetState = {
   text: "Most people will never understand this about building a startup.\n\nIt is not about the idea. It is about the founder.\n\nRT if you agree and follow me for more founder lessons.",
@@ -75,7 +87,7 @@ async function handle(msg: Message): Promise<unknown> {
     case "testConnection":
       return analyze(SAMPLE);
     case "analyze":
-      return analyze(msg.state);
+      return analyze(msg.state, msg.image);
     case "analyzeArticle":
       return analyzeArticle(msg.article);
     case "fetchArticle":
@@ -85,19 +97,60 @@ async function handle(msg: Message): Promise<unknown> {
   }
 }
 
-async function analyze(state: TweetState): Promise<AnalyzeReply> {
+async function analyze(state: TweetState | AnalysisState, image?: VisionImage): Promise<AnalyzeReply> {
   const s = await settingsPromise;
   if (!s.apiKey) return { ok: false, error: "no API key", status: 401 };
   const questions = activeQuestions(s);
   if (Object.keys(questions).length === 0) return { ok: false, error: "no enabled dimensions" };
+
+  // Vision is an opt-in extra, never a requirement. The gate is checked here as well as in the
+  // content script, so a stale tab or a hand-sent message cannot attach an image to a text-only setup.
+  const vision = image && s.visionBetaEnabled && s.selectedPreset === "signal_v2" ? await tryVision(state, image, questions, s) : null;
+  if (vision) return vision;
+
   try {
     const { response, latencyMs } = await callJev({ model: s.model, state, questions }, { baseUrl: s.baseUrl, apiKey: s.apiKey });
     const cost = costUsd(response.usage.input_tokens, s.pricePerMtok);
     bumpStats(response.usage.input_tokens, cost);
-    return { ok: true, model: response.model, answers: response.answers, usage: response.usage, latencyMs, costUsd: cost };
+    return { ok: true, model: response.model, answers: response.answers, usage: response.usage, latencyMs, costUsd: cost, mode: "text" };
   } catch (e) {
     const err = e as JevError;
     return { ok: false, error: err.message, status: err.status };
+  }
+}
+
+/**
+ * One vision call, or null. Every failure - a rejected image, a reference collision, an HTTP error,
+ * a malformed answer - returns null so the caller makes the ordinary text-only request instead.
+ * A failed attempt is not billed twice: this either returns a complete reply or nothing at all, and
+ * the caller counts exactly one successful analysis either way.
+ */
+async function tryVision(
+  state: TweetState | AnalysisState,
+  image: VisionImage,
+  questions: Record<string, JevQuestion>,
+  s: Settings,
+): Promise<AnalyzeReply | null> {
+  try {
+    const ref = newVisionReference();
+    const text = typeof state.text === "string" ? state.text : "";
+    assertReferenceSafe(ref, text, questions);
+    const { response, latencyMs } = await callJev(
+      {
+        model: VISION_MODEL,
+        // attached_image on the state is the documented way to let every question see one image
+        // without repeating it in each instruction, which would bill the image once per question.
+        state: { ...state, attached_image: ref },
+        questions,
+        assets: { [ref]: { type: "image", format: image.format, data_base64: image.data_base64 } },
+      },
+      { baseUrl: s.baseUrl, apiKey: s.apiKey, extraHeaders: { [IMAGE_HEADER]: "true" } },
+    );
+    const cost = costUsd(response.usage.input_tokens, s.pricePerMtok);
+    bumpStats(response.usage.input_tokens, cost);
+    return { ok: true, model: response.model, answers: response.answers, usage: response.usage, latencyMs, costUsd: cost, mode: "vision" };
+  } catch {
+    return null;
   }
 }
 
@@ -110,7 +163,7 @@ async function analyzeArticle(article: ArticleState): Promise<AnalyzeReply> {
     const { response, latencyMs } = await callJev({ model: s.model, state: article, questions }, { baseUrl: s.baseUrl, apiKey: s.apiKey });
     const cost = costUsd(response.usage.input_tokens, s.pricePerMtok);
     bumpStats(response.usage.input_tokens, cost);
-    return { ok: true, model: response.model, answers: response.answers, usage: response.usage, latencyMs, costUsd: cost };
+    return { ok: true, model: response.model, answers: response.answers, usage: response.usage, latencyMs, costUsd: cost, mode: "text" };
   } catch (e) {
     const err = e as JevError;
     return { ok: false, error: err.message, status: err.status };

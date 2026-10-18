@@ -1,8 +1,8 @@
 // Content script entry. Wires the watcher, scheduler, cache, HUD and renderer together.
-import type { AnalysisResult, AnalyzeReply, ArticleState, Settings, TweetState, Verdict } from "../shared/types.ts";
+import type { AnalysisResult, AnalyzeReply, ArticleState, Settings, TweetState, Verdict, VisionImage } from "../shared/types.ts";
 import { loadSettings, onSettingsChange, SETTINGS_CHANGED, SETTINGS_PORT, settingsSnapshotKey } from "../shared/settings.ts";
 import { questionsHash } from "../shared/questions.ts";
-import { extractTweet, isReply, loggedInHandle, tweetId, articleHrefs, extractThreadContext } from "./extract.ts";
+import { extractTweet, isReply, loggedInHandle, tweetId, articleHrefs, extractThreadContext, extractPhotoUrl } from "./extract.ts";
 import { routeStatusId, shouldAnalyzePost } from "./route.ts";
 import { TweetWatcher } from "./observe.ts";
 import { Scheduler } from "./queue.ts";
@@ -15,6 +15,8 @@ import { ArticleStore } from "./article-store.ts";
 import { renderSessionPanel } from "./session-panel.ts";
 import { activeDimensions, activeQuestions, contextModeFor, PRESET_BY_ID } from "../shared/presets.ts";
 import { buildJevState, contextHash, postCacheKey } from "../shared/context.ts";
+import { canonicalMediaUrl, visionCacheSuffix } from "../shared/vision.ts";
+import { acquireVisionImage } from "./vision-media.ts";
 import { extractReadable, hostOf } from "../shared/article.ts";
 import { isHighSignal, signalScore } from "../shared/score.ts";
 import type { FetchArticleReply } from "../shared/types.ts";
@@ -142,7 +144,9 @@ class App {
 
     // 6. Existing DOM / rendered posts
     closeDetail();
-    if (prevQhash !== this.qhash) {
+    // Turning the vision beta on or off changes which key each post reads from, so the rendered
+    // slots have to be re-resolved against the new namespace exactly like a preset switch does.
+    if (prevQhash !== this.qhash || prevSettings.visionBetaEnabled !== next.visionBetaEnabled) {
       const renderedSlots = Array.from(document.querySelectorAll<HTMLElement>(".xs-slot"));
       for (const slot of renderedSlots) {
         const id = slot.dataset.tweetId;
@@ -276,10 +280,15 @@ class App {
     const extra = article ? extractThreadContext(article) : {};
     const payload = buildJevState(state, extra, contextModeFor(this.settings));
     const ctx = contextHash(payload);
-    const key = postCacheKey(id, ctx);
+    // The cache identity is decided before the request goes out, from the DOM alone, so a vision
+    // result and a text-only result for the same post can never overwrite each other. A photo that
+    // fails to download is still stored under the vision key, so the next visit does not bill again.
+    const photoUrl = article && this.visionGated() ? extractPhotoUrl(article) : null;
+    const key = this.postKey(id, ctx, photoUrl);
+    const image: VisionImage | null = photoUrl ? await acquireVisionImage(photoUrl) : null;
     let reply: AnalyzeReply | undefined;
     try {
-      reply = (await chrome.runtime.sendMessage({ type: "analyze", state: payload })) as AnalyzeReply;
+      reply = (await chrome.runtime.sendMessage({ type: "analyze", state: payload, image: image ?? undefined })) as AnalyzeReply;
     } catch (e) {
       const msg = String((e as Error)?.message ?? e);
       reply = { ok: false, error: /context invalidated/i.test(msg) ? "extension reloaded, refresh the page" : msg };
@@ -308,6 +317,9 @@ class App {
       kind: "post",
       contextHash: ctx || undefined,
       signalScore: score,
+      // The service worker says which call answered. A vision attempt that fell back to text is
+      // reported as text, so the row never claims an image the answers were not based on.
+      analysisMode: reply.mode === "vision" ? "vision" : "text",
     };
     this.store.set(key, result);
     this.stats.recordAnalysis({
@@ -336,11 +348,32 @@ class App {
     fillSlot(slot, verdicts(activeDimensions(this.settings), r.answers), r, this.displayMode());
   }
 
+  /**
+   * Whether the vision beta can apply right now: the reader turned it on and Signal v2 is the active
+   * preset, the only question set the beta was validated against. Every other preset keeps the
+   * text-only path, including its cache identity.
+   */
+  private visionGated(): boolean {
+    return this.settings.visionBetaEnabled && this.settings.selectedPreset === "signal_v2";
+  }
+
+  /**
+   * The text-only key, plus the vision namespace when this post carries a photo that may be sent.
+   * Both are computed from the DOM before any fetch, so the read path and the write path agree.
+   */
+  private postKey(id: string, ctx: string, photoUrl: string | null): string {
+    const base = postCacheKey(id, ctx);
+    if (!photoUrl) return base;
+    const canonical = canonicalMediaUrl(photoUrl);
+    return canonical ? base + visionCacheSuffix(canonical) : base;
+  }
+
   private cacheKey(article: HTMLElement, id: string): string {
     const t = extractTweet(article);
     if (!t) return id;
     const payload = buildJevState(t.state, extractThreadContext(article), contextModeFor(this.settings));
-    return postCacheKey(id, contextHash(payload));
+    const photoUrl = this.visionGated() ? extractPhotoUrl(article) : null;
+    return this.postKey(id, contextHash(payload), photoUrl);
   }
 
   /**

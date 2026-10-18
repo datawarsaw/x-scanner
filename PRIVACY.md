@@ -1,6 +1,6 @@
 # Privacy policy for x-scanner
 
-Last updated 2026-09-27 (Signal v2, native X Articles, Firefox data-collection declaration).
+Last updated 2026-10-18 (Jev Vision beta, Signal v2, native X Articles, Firefox data-collection declaration).
 
 x-scanner is a browser extension that sends the text of posts you scroll past on X to TypeSafe's Jev
 API and shows the answers next to the post. It has no server of its own and no analytics.
@@ -9,7 +9,16 @@ API and shows the answers next to the post. It has no server of its own and no a
 
 - **Post text.** The text of a post, the text of a quoted post if there is one, and whether the post is
   a reply, are sent to `api.typesafe.ai` when the post comes near your viewport. Nothing else about the
-  post is sent: no author name, handle, post id, media, or engagement numbers.
+  post is sent: no author name, handle, post id, or engagement numbers. Media is not sent either, unless
+  you turn on the Vision beta described below.
+- **One post photo, only with the Vision beta.** Off by default. When you enable Vision (beta) in settings
+  and the Signal v2 preset is selected, x-scanner downloads the first photo attached to that post from
+  `pbs.twimg.com` and sends it to TypeSafe with the post text, so the image can be judged as part of the
+  post. Photos larger than Jev's limits are resized proportionally in your browser first, and the download
+  carries no cookies or credentials. Images inside quoted posts are never sent, video and GIF media are not
+  sent, and nothing is fetched at all while the switch is off. If a photo cannot be fetched or the vision
+  request fails, that post is scored from its text alone. Results produced with an image are marked
+  `vision` on the post and in its detail panel.
 - **Replies and comments stay behind by default.** Posts X marks as replies are not sent anywhere at all
   unless you turn on Analyze replies/comments in settings.
 - **Thread context, when the preset asks for it.** On a post's own page, the Signal v2, Signal and AI / Tech presets

@@ -1,6 +1,7 @@
 import type { TweetState } from "../shared/types.ts";
 import { PROMOTED_LABELS, REPLYING_TO, SEL } from "./selectors.ts";
 import { uniqueArticleUrls } from "../shared/links.ts";
+import { isAllowedMediaUrl } from "../shared/vision.ts";
 import type { ExtractedContext } from "../shared/context.ts";
 
 export interface ExtractedTweet {
@@ -30,6 +31,24 @@ export function statusHref(article: Element): string | null {
   const withTime = links.find((a) => a.querySelector("time"));
   const pick = withTime ?? links[0];
   return pick?.getAttribute("href") ?? null;
+}
+
+/**
+ * The address of the post's own first photo, or null when it has none that this extension may fetch.
+ *
+ * Only the outer post counts: an image inside a quoted post belongs to someone else's content, and
+ * the allowlist keeps avatars, emoji sprites and card thumbnails out. A null here is normal and cheap
+ * - the caller then runs the ordinary text-only analysis.
+ */
+export function extractPhotoUrl(article: Element): string | null {
+  for (const box of Array.from(article.querySelectorAll(SEL.tweetPhoto))) {
+    if (insideQuote(box, article)) continue;
+    const img = box.querySelector("img");
+    const src = img?.getAttribute("src");
+    if (!src) continue;
+    if (isAllowedMediaUrl(src)) return src;
+  }
+  return null;
 }
 
 export function tweetId(article: Element): string | null {

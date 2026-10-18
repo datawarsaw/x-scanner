@@ -91,11 +91,13 @@ The analysis HUD is **off by default**. A **Show analysis HUD** setting turns it
 
 Click `session` in the HUD for a local summary: posts analyzed, cache hits, session cost, average latency, flagged counts, which dimensions showed up, and the top-scoring posts and articles. Under Signal v2 it also shows the topic distribution and the average of each component. It costs no extra Jev calls — a local aggregate of what you already analyzed, not a recommendation engine.
 
+**Vision (beta)** is **off by default**. Turn it on in settings and, with the Signal v2 preset selected, the first photo attached to a post is downloaded from `pbs.twimg.com` and sent to TypeSafe with the post text so the image is judged as part of the post. Oversized photos are resized proportionally in your browser first; quoted-post images, video and GIF media are never sent. Posts whose photo cannot be fetched, and any vision request that fails, fall back to text-only scoring. A result that used an image carries a `vision` marker on the post and in its detail panel; unmarked results are text-only. Vision requests use `jev-1.14.0` and carry more input tokens per post, so cost per post rises. Cached results are kept separate per mode, so toggling the switch re-analyzes rather than reusing the other mode's answer.
+
 ## Privacy, API key, and cost
 
 - Bring your own TypeSafe API key. Paste it in settings, test the connection, save. Typical cost is about $0.00004 per post at current pricing; a thousand posts is under four cents.
 - The key lives in the browser's extension storage and nowhere else. Only the background script reads it, and it is sent only as the Authorization header to the configured TypeSafe base URL.
-- Post text (plus quoted text, reply flag, and thread context where the preset asks for it) and, only when you press the button, article text go to `api.typesafe.ai`. Nothing else about the post goes: no author name, handle, post id, media, or engagement numbers — except that a native X Article's own x.com URL carries the author's handle.
+- Post text (plus quoted text, reply flag, and thread context where the preset asks for it) and, only when you press the button, article text go to `api.typesafe.ai`. Nothing else about the post goes: no author name, handle, post id, or engagement numbers — except that a native X Article's own x.com URL carries the author's handle. Media stays behind too, unless you switch on the Vision beta, which sends the post's first photo with it (see below).
 - There is no project-owned backend and no analytics or telemetry. Cost and usage counters are computed locally and never leave the device.
 - Full details, including retention boundaries and TypeSafe's own handling of requests, are in PRIVACY.md. Security scope is in SECURITY.md.
 

@@ -177,6 +177,10 @@ function fillCompact(slot: HTMLElement, vs: Verdict[], r: AnalysisResult): void 
   if (escalated.length) slot.dataset.warn = escalated.join(" ");
   else delete slot.dataset.warn;
   const parts: HTMLElement[] = [];
+  // A vision result names itself up front so the reader can tell an image-aware judgment from a
+  // text-only one at a glance. The class is its own, never a reused chip class, so existing chip
+  // assertions and the filter escalation logic are unaffected.
+  if (r.analysisMode === "vision") parts.push(span("xs-vision", "vision"));
   for (const v of vs) {
     if (v.type === "choice") {
       if (v.choice) parts.push(span("xs-topic", v.choice.label));
@@ -329,6 +333,14 @@ function openDetailFor(slot: HTMLElement, vs: Verdict[], r: AnalysisResult, mode
   const foot = document.createElement("div");
   foot.className = "xs-detail-foot";
   foot.textContent = `${r.inputTokens} tok · $${r.costUsd.toFixed(6)} · ${r.latencyMs} ms · ${r.model}`;
+  // The mode line sits above the foot so the foot's own text stays exactly what the tests and the
+  // page console read. Only vision results add it; a text result looks precisely as it always did.
+  if (r.analysisMode === "vision") {
+    const modeLine = document.createElement("div");
+    modeLine.className = "xs-detail-mode";
+    modeLine.textContent = "analysis mode: vision · post image attached";
+    card.appendChild(modeLine);
+  }
   card.appendChild(foot);
   const root = getOverlayRoot();
   root.appendChild(card);

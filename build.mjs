@@ -134,7 +134,12 @@ export async function buildExtension(opts) {
     target: "chrome120",
     outdir,
     // Substituted into src/shared/build.ts so the UI can name the running revision.
-    define: { __XS_BUILD_SHA__: JSON.stringify(buildSha) },
+    define: {
+      __XS_BUILD_SHA__: JSON.stringify(buildSha),
+      // Tells a shipped build it is not the local fixture build, so the vision media allowlist
+      // stays on X's photo CDN alone.
+      __XS_E2E__: JSON.stringify(opts.e2e ? "true" : "false"),
+    },
     sourcemap: watch ? "inline" : false,
     logLevel: "info",
     plugins: [{ name: "static", setup: (b) => b.onEnd(() => copyStatic(outdir, opts)) }],
